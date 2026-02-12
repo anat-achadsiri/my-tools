@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="app-icon" content="settings">
+    <meta name="app-color" content="#607D8B">
+    <meta name="app-order" content="99">
+    <title>จัดการแอป</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: #333;
+        }
+
+        .back-btn:hover {
+            background: #f0f0f0;
+        }
+
+        h1 {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box p {
+            color: #1565C0;
+            font-size: 14px;
+        }
+
+        .apps-list {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .app-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .app-item:last-child {
+            border-bottom: none;
+        }
+
+        .app-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .app-icon .material-icons {
+            font-size: 26px;
+            color: white;
+        }
+
+        .app-info {
+            flex: 1;
+        }
+
+        .app-name {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .app-url {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .app-order {
+            background: #f0f0f0;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #999;
+        }
+
+        .empty-state .material-icons {
+            font-size: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .meta-guide {
+            margin-top: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 20px;
+        }
+
+        .meta-guide h2 {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .code-block {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+        }
+
+        .code-block .tag {
+            color: #80cbc4;
+        }
+
+        .code-block .attr {
+            color: #ffcc80;
+        }
+
+        .code-block .value {
+            color: #c5e1a5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="../index.html" class="back-btn">
+                <span class="material-icons">arrow_back</span>
+            </a>
+            <h1>จัดการแอป</h1>
+        </div>
+
+        <div class="info-box">
+            <p>ไอคอนจะแสดงอัตโนมัติจากไฟล์ HTML ใน Apps folder ผ่าน GitHub API โดยอ่าน meta tag จากแต่ละไฟล์</p>
+        </div>
+
+        <div class="apps-list" id="appsList">
+            <div class="empty-state">
+                <span class="material-icons">hourglass_empty</span>
+                <p>กำลังโหลด...</p>
+            </div>
+        </div>
+
+        <div class="meta-guide">
+            <h2>วิธีเพิ่ม meta tag ในไฟล์ HTML</h2>
+            <div class="code-block">
+<span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-icon"</span> <span class="attr">content=</span><span class="value">"storage"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-color"</span> <span class="attr">content=</span><span class="value">"#4CAF50"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-order"</span> <span class="attr">content=</span><span class="value">"1"</span><span class="tag">&gt;</span>
+            </div>
+            <p style="margin-top: 15px; font-size: 14px; color: #666;">
+                <strong>app-icon:</strong> ใช้ชื่อ Material Icons เช่น storage, code, table_chart, search, folder<br>
+                <strong>app-color:</strong> สี HEX ของไอคอน<br>
+                <strong>app-order:</strong> ลำดับการแสดง (ตัวเลขน้อยแสดงก่อน)
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // GitHub Config
+        const GITHUB_CONFIG = {
+            owner: '',
+            repo: '',
+            branch: 'main',
+            appsFolder: 'Apps'
+        };
+
+        // Auto detect GitHub owner and repo from URL
+        function getGitHubInfo() {
+            const hostname = window.location.hostname;
+            const pathname = window.location.pathname;
+
+            if (hostname.endsWith('.github.io')) {
+                const owner = hostname.replace('.github.io', '');
+                const repo = pathname.split('/')[1] || '';
+                return { owner, repo };
+            }
+
+            return { owner: GITHUB_CONFIG.owner, repo: GITHUB_CONFIG.repo };
+        }
+
+        // Extract meta data from HTML content
+        function extractMeta(html, name) {
+            const match = html.match(new RegExp(`<meta\\s+name="${name}"\\s+content="([^"]*)"`, 'i'));
+            return match ? match[1] : null;
+        }
+
+        // Extract title from HTML content
+        function extractTitle(html) {
+            const match = html.match(/<title>([^<]*)<\/title>/i);
+            return match ? match[1] : 'Untitled';
+        }
+
+        // Render apps list
+        function renderApps(apps, container) {
+            if (apps.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-icons">apps</span>
+                        <p>ยังไม่มีแอป</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = apps.map(app => `
+                <div class="app-item">
+                    <div class="app-icon" style="background-color: ${app.color}">
+                        <span class="material-icons">${app.icon}</span>
+                    </div>
+                    <div class="app-info">
+                        <div class="app-name">${app.name}</div>
+                        <div class="app-url">${app.url}</div>
+                    </div>
+                    <div class="app-order">ลำดับ: ${app.order}</div>
+                </div>
+            `).join('');
+        }
+
+        // Load apps using GitHub API
+        async function loadApps() {
+            const container = document.getElementById('appsList');
+            const { owner, repo } = getGitHubInfo();
+
+            try {
+                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${GITHUB_CONFIG.appsFolder}?ref=${GITHUB_CONFIG.branch}`;
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) throw new Error('GitHub API error');
+
+                const files = await response.json();
+                const htmlFiles = files.filter(f => f.name.endsWith('.html') && f.name !== 'settings.html');
+
+                const appsData = await Promise.all(htmlFiles.map(async (file) => {
+                    try {
+                        const htmlResponse = await fetch(file.name);
+                        const html = await htmlResponse.text();
+
+                        return {
+                            url: `${GITHUB_CONFIG.appsFolder}/${file.name}`,
+                            name: extractTitle(html),
+                            icon: extractMeta(html, 'app-icon') || 'apps',
+                            color: extractMeta(html, 'app-color') || '#666666',
+                            order: parseInt(extractMeta(html, 'app-order')) || 99
+                        };
+                    } catch (e) {
+                        return null;
+                    }
+                }));
+
+                const apps = appsData.filter(app => app !== null).sort((a, b) => a.order - b.order);
+                renderApps(apps, container);
+
+            } catch (error) {
+                console.error('GitHub API error, using hardcoded apps...', error);
+                loadAppsLocal();
+            }
+        }
+
+        // Fallback: Load apps locally (hardcoded for file:// protocol)
+        function loadAppsLocal() {
+            const container = document.getElementById('appsList');
+
+            // Hardcoded apps data - update this when adding new apps
+            const apps = [
+                {
+                    url: 'Apps/convert_to_sql.html',
+                    name: 'แปลงรายชื่อเป็น SQL',
+                    icon: 'storage',
+                    color: '#4CAF50',
+                    order: 1
+                }
+            ].sort((a, b) => a.order - b.order);
+
+            renderApps(apps, container);
+        }
+
+        loadApps();
+    </script>
+</body>
+</html>
