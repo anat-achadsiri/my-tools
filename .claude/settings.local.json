@@ -5,7 +5,10 @@
       "Bash(git remote set-url:*)",
       "Bash(git push:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix GitHub API branch from ''main'' to ''master''\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix GitHub API branch from ''main'' to ''master''\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(curl:*)",
+      "Bash(ssh-add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Text Counter app\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

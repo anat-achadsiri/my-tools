@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="app-icon" content="text_fields">
+    <meta name="app-color" content="#9C27B0">
+    <meta name="app-order" content="2">
+    <title>นับตัวอักษร</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .stat-box .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #9C27B0;
+        }
+        .stat-box .label {
+            color: #666;
+            margin-top: 5px;
+        }
+        .buttons {
+            margin-top: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            margin-right: 10px;
+            background: #9C27B0;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>นับตัวอักษร คำ และบรรทัด</h1>
+
+    <label>วางข้อความที่ต้องการนับ:</label>
+    <textarea id="input" placeholder="พิมพ์หรือวางข้อความที่นี่..."></textarea>
+
+    <div class="stats">
+        <div class="stat-box">
+            <div class="number" id="charCount">0</div>
+            <div class="label">ตัวอักษร (รวมเว้นวรรค)</div>
+        </div>
+        <div class="stat-box">
+            <div class="number" id="charNoSpaceCount">0</div>
+            <div class="label">ตัวอักษร (ไม่รวมเว้นวรรค)</div>
+        </div>
+        <div class="stat-box">
+            <div class="number" id="wordCount">0</div>
+            <div class="label">คำ</div>
+        </div>
+        <div class="stat-box">
+            <div class="number" id="lineCount">0</div>
+            <div class="label">บรรทัด</div>
+        </div>
+        <div class="stat-box">
+            <div class="number" id="sentenceCount">0</div>
+            <div class="label">ประโยค</div>
+        </div>
+        <div class="stat-box">
+            <div class="number" id="paragraphCount">0</div>
+            <div class="label">ย่อหน้า</div>
+        </div>
+    </div>
+
+    <div class="buttons">
+        <button onclick="clearText()">ล้างข้อความ</button>
+    </div>
+
+    <script>
+        function countText() {
+            const text = document.getElementById('input').value;
+
+            // นับตัวอักษร (รวมเว้นวรรค)
+            const charCount = text.length;
+
+            // นับตัวอักษร (ไม่รวมเว้นวรรค)
+            const charNoSpaceCount = text.replace(/\s/g, '').length;
+
+            // นับคำ
+            const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+            const wordCount = text.trim() === '' ? 0 : words.length;
+
+            // นับบรรทัด
+            const lines = text.split('\n');
+            const lineCount = text === '' ? 0 : lines.length;
+
+            // นับประโยค (จบด้วย . ! ?)
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            const sentenceCount = sentences.length;
+
+            // นับย่อหน้า (แยกด้วยบรรทัดว่าง)
+            const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+            const paragraphCount = text.trim() === '' ? 0 : paragraphs.length;
+
+            // แสดงผล
+            document.getElementById('charCount').textContent = charCount.toLocaleString();
+            document.getElementById('charNoSpaceCount').textContent = charNoSpaceCount.toLocaleString();
+            document.getElementById('wordCount').textContent = wordCount.toLocaleString();
+            document.getElementById('lineCount').textContent = lineCount.toLocaleString();
+            document.getElementById('sentenceCount').textContent = sentenceCount.toLocaleString();
+            document.getElementById('paragraphCount').textContent = paragraphCount.toLocaleString();
+        }
+
+        function clearText() {
+            document.getElementById('input').value = '';
+            countText();
+        }
+
+        // นับอัตโนมัติเมื่อพิมพ์
+        document.getElementById('input').addEventListener('input', countText);
+    </script>
+</body>
+</html>
