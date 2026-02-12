@@ -105,6 +105,23 @@
             color: white;
         }
 
+        .app-icon .icon-img {
+            width: 26px;
+            height: 26px;
+            object-fit: contain;
+        }
+
+        .app-icon .icon-svg {
+            width: 26px;
+            height: 26px;
+        }
+
+        .app-icon .icon-svg svg {
+            width: 100%;
+            height: 100%;
+            fill: white;
+        }
+
         .app-info {
             flex: 1;
         }
@@ -201,13 +218,18 @@
         <div class="meta-guide">
             <h2>วิธีเพิ่ม meta tag ในไฟล์ HTML</h2>
             <div class="code-block">
+<span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-name"</span> <span class="attr">content=</span><span class="value">"ชื่อแอป"</span><span class="tag">&gt;</span>
 <span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-icon"</span> <span class="attr">content=</span><span class="value">"storage"</span><span class="tag">&gt;</span>
 <span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-color"</span> <span class="attr">content=</span><span class="value">"#4CAF50"</span><span class="tag">&gt;</span>
 <span class="tag">&lt;meta</span> <span class="attr">name=</span><span class="value">"app-order"</span> <span class="attr">content=</span><span class="value">"1"</span><span class="tag">&gt;</span>
             </div>
             <p style="margin-top: 15px; font-size: 14px; color: #666;">
-                <strong>app-icon:</strong> ใช้ชื่อ Material Icons เช่น storage, code, table_chart, search, folder<br>
-                <strong>app-color:</strong> สี HEX ของไอคอน<br>
+                <strong>app-name:</strong> ชื่อแอปที่แสดง (ถ้าไม่ใส่จะใช้ &lt;title&gt;)<br>
+                <strong>app-icon:</strong> รองรับ 3 รูปแบบ:<br>
+                &nbsp;&nbsp;• Material Icons: storage, code, table_chart, search, folder<br>
+                &nbsp;&nbsp;• ไฟล์รูป: icons/myapp.png หรือ URL เต็ม<br>
+                &nbsp;&nbsp;• SVG inline: &lt;svg&gt;...&lt;/svg&gt;<br>
+                <strong>app-color:</strong> สี HEX ของพื้นหลังไอคอน<br>
                 <strong>app-order:</strong> ลำดับการแสดง (ตัวเลขน้อยแสดงก่อน)
             </p>
         </div>
@@ -248,6 +270,24 @@
             return match ? match[1] : 'Untitled';
         }
 
+        // Render icon based on type (Material Icons, image URL, or SVG)
+        function renderIcon(icon) {
+            if (!icon) return '<span class="material-icons">apps</span>';
+
+            // Check if it's an image URL
+            if (icon.match(/\.(png|jpg|jpeg|gif|webp|ico)$/i) || icon.startsWith('http') || icon.startsWith('./') || icon.startsWith('../') || icon.startsWith('icons/')) {
+                return `<img src="${icon}" alt="icon" class="icon-img">`;
+            }
+
+            // Check if it's inline SVG
+            if (icon.trim().startsWith('<svg')) {
+                return `<span class="icon-svg">${icon}</span>`;
+            }
+
+            // Default: Material Icons
+            return `<span class="material-icons">${icon}</span>`;
+        }
+
         // Render apps list
         function renderApps(apps, container) {
             if (apps.length === 0) {
@@ -263,7 +303,7 @@
             container.innerHTML = apps.map(app => `
                 <div class="app-item">
                     <div class="app-icon" style="background-color: ${app.color}">
-                        <span class="material-icons">${app.icon}</span>
+                        ${renderIcon(app.icon)}
                     </div>
                     <div class="app-info">
                         <div class="app-name">${app.name}</div>
@@ -295,7 +335,7 @@
 
                         return {
                             url: `${GITHUB_CONFIG.appsFolder}/${file.name}`,
-                            name: extractTitle(html),
+                            name: extractMeta(html, 'app-name') || extractTitle(html),
                             icon: extractMeta(html, 'app-icon') || 'apps',
                             color: extractMeta(html, 'app-color') || '#666666',
                             order: parseInt(extractMeta(html, 'app-order')) || 99

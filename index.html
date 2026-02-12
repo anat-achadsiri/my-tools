@@ -108,6 +108,23 @@
             color: white;
         }
 
+        .dock-item .icon-img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .dock-item .icon-svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .dock-item .icon-svg svg {
+            width: 100%;
+            height: 100%;
+            fill: white;
+        }
+
         .tooltip {
             position: absolute;
             top: -40px;
@@ -262,6 +279,24 @@
             return match ? match[1] : 'Untitled';
         }
 
+        // Render icon based on type (Material Icons, image URL, or SVG)
+        function renderIcon(icon) {
+            if (!icon) return '<span class="material-icons">apps</span>';
+
+            // Check if it's an image URL
+            if (icon.match(/\.(png|jpg|jpeg|gif|webp|ico)$/i) || icon.startsWith('http') || icon.startsWith('./') || icon.startsWith('../') || icon.startsWith('icons/')) {
+                return `<img src="${icon}" alt="icon" class="icon-img">`;
+            }
+
+            // Check if it's inline SVG
+            if (icon.trim().startsWith('<svg')) {
+                return `<span class="icon-svg">${icon}</span>`;
+            }
+
+            // Default: Material Icons
+            return `<span class="material-icons">${icon}</span>`;
+        }
+
         // Load apps using GitHub API
         async function loadApps() {
             const { owner, repo } = getGitHubInfo();
@@ -286,7 +321,7 @@
 
                         return {
                             url: `${GITHUB_CONFIG.appsFolder}/${file.name}`,
-                            name: extractTitle(html),
+                            name: extractMeta(html, 'app-name') || extractTitle(html),
                             icon: extractMeta(html, 'app-icon') || 'apps',
                             color: extractMeta(html, 'app-color') || '#666666',
                             order: parseInt(extractMeta(html, 'app-order')) || 99
@@ -306,7 +341,7 @@
                     item.href = app.url;
                     item.style.backgroundColor = app.color;
                     item.innerHTML = `
-                        <span class="material-icons">${app.icon}</span>
+                        ${renderIcon(app.icon)}
                         <span class="tooltip">${app.name}</span>
                     `;
                     dock.appendChild(item);
@@ -315,7 +350,7 @@
                     const reflection = document.createElement('div');
                     reflection.className = 'dock-item';
                     reflection.style.backgroundColor = app.color;
-                    reflection.innerHTML = `<span class="material-icons">${app.icon}</span>`;
+                    reflection.innerHTML = renderIcon(app.icon);
                     dockReflection.appendChild(reflection);
                 });
             } catch (error) {
@@ -347,7 +382,7 @@
                 item.href = app.url;
                 item.style.backgroundColor = app.color;
                 item.innerHTML = `
-                    <span class="material-icons">${app.icon}</span>
+                    ${renderIcon(app.icon)}
                     <span class="tooltip">${app.name}</span>
                 `;
                 dock.appendChild(item);
@@ -355,7 +390,7 @@
                 const reflection = document.createElement('div');
                 reflection.className = 'dock-item';
                 reflection.style.backgroundColor = app.color;
-                reflection.innerHTML = `<span class="material-icons">${app.icon}</span>`;
+                reflection.innerHTML = renderIcon(app.icon);
                 dockReflection.appendChild(reflection);
             });
         }
