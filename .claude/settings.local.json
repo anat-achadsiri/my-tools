@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
