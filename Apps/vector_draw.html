@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="app-name" content="Vector Draw">
+    <meta name="app-icon" content="🎨">
+    <meta name="app-color" content="#E91E63">
+    <meta name="app-order" content="3">
+    <title>Vector Draw</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 .emoji {
+            font-size: 1.6rem;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 1.3rem;
+        }
+
+        .tool-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tool-btn.active {
+            background: #E91E63;
+        }
+
+        .separator {
+            width: 1px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 0 8px;
+        }
+
+        /* Color and stroke controls */
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .color-picker {
+            width: 36px;
+            height: 36px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+
+        .color-picker::-webkit-color-swatch-wrapper {
+            padding: 2px;
+        }
+
+        .color-picker::-webkit-color-swatch {
+            border: none;
+            border-radius: 4px;
+        }
+
+        .num-input {
+            width: 70px;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .num-input:focus {
+            outline: none;
+            border-color: #E91E63;
+        }
+
+        .smooth-slider {
+            width: 80px;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .smooth-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #E91E63;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .smooth-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #E91E63;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Action buttons */
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .action-btn.primary {
+            background: #E91E63;
+            color: #fff;
+        }
+
+        .action-btn.primary:hover {
+            background: #c2185b;
+        }
+
+        .action-btn.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .action-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .action-btn .emoji {
+            font-size: 1.1rem;
+        }
+
+        /* Canvas area */
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .canvas-wrapper {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        #drawingCanvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* Fill option */
+        .fill-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .fill-toggle input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .fill-toggle label {
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        /* Canvas size controls */
+        .canvas-size-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .canvas-size-group label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .canvas-size-group .size-input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .canvas-size-group .size-input:focus {
+            outline: none;
+            border-color: #E91E63;
+        }
+
+        .canvas-size-group .size-x {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+        }
+
+        .apply-size-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 4px;
+            background: #E91E63;
+            color: #fff;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .apply-size-btn:hover {
+            background: #c2185b;
+        }
+
+        /* Size preset dropdown */
+        .size-preset-wrapper {
+            position: relative;
+        }
+
+        .size-preset-btn {
+            padding: 4px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .size-preset-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .size-preset-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            min-width: 220px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .size-preset-dropdown.show {
+            display: block;
+        }
+
+        .preset-category {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            color: #E91E63;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(233, 30, 99, 0.1);
+        }
+
+        .preset-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .preset-item:hover {
+            background: rgba(233, 30, 99, 0.2);
+        }
+
+        .preset-item:last-child {
+            border-bottom: none;
+        }
+
+        .preset-item .name {
+            font-size: 0.85rem;
+        }
+
+        .preset-item .size {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Status bar */
+        .status-bar {
+            padding: 8px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-content h3 {
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+
+        .modal-content textarea {
+            width: 100%;
+            height: 200px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+
+        .modal-content textarea:focus {
+            outline: none;
+            border-color: #E91E63;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+
+        /* Image Modal Controls */
+        .image-preview-container {
+            margin-bottom: 16px;
+            text-align: center;
+            max-height: 350px;
+            overflow: auto;
+            background: #222;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .zoom-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .zoom-btn:active {
+            background: #E91E63;
+        }
+
+        .zoom-preset {
+            padding: 6px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .zoom-preset:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .zoom-preset.active {
+            background: #E91E63;
+            border-color: #E91E63;
+        }
+
+        .zoom-value {
+            min-width: 60px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #fff;
+        }
+
+        .zoom-slider {
+            width: 120px;
+        }
+
+        .image-info {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 8px;
+        }
+
+        .preview-mode-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .preview-mode-btn {
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .preview-mode-btn:first-child {
+            border-radius: 6px 0 0 6px;
+        }
+
+        .preview-mode-btn:last-child {
+            border-radius: 0 6px 6px 0;
+        }
+
+        .preview-mode-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .preview-mode-btn.active {
+            background: #E91E63;
+            border-color: #E91E63;
+        }
+
+        .preview-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #E91E63;
+            font-size: 0.9rem;
+        }
+
+        .image-preview-container {
+            position: relative;
+        }
+
+        .image-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .control-row label {
+            min-width: 120px;
+            font-size: 0.9rem;
+        }
+
+        .control-row .smooth-slider {
+            flex: 1;
+        }
+
+        .control-row span {
+            min-width: 50px;
+            text-align: right;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .control-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .mode-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .mode-select:focus {
+            outline: none;
+            border-color: #E91E63;
+        }
+
+        .mode-select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .toolbar {
+                padding: 8px 12px;
+            }
+
+            .separator {
+                display: none;
+            }
+
+            .control-group label {
+                display: none;
+            }
+
+            .action-btn span:not(.emoji) {
+                display: none;
+            }
+
+            .canvas-wrapper {
+                border-radius: 8px;
+            }
+
+            .canvas-size-group label {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1><span class="emoji">🎨</span> Vector Draw</h1>
+        </header>
+
+        <div class="toolbar">
+            <!-- Drawing tools -->
+            <div class="tool-group">
+                <button class="tool-btn active" data-tool="pencil" title="ดินสอ">✏️</button>
+                <button class="tool-btn" data-tool="line" title="เส้นตรง">📏</button>
+                <button class="tool-btn" data-tool="rect" title="สี่เหลี่ยม">⬜</button>
+                <button class="tool-btn" data-tool="circle" title="วงกลม">⭕</button>
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- Color and stroke -->
+            <div class="control-group">
+                <label>สี:</label>
+                <input type="color" id="strokeColor" class="color-picker" value="#000000">
+            </div>
+
+            <div class="control-group">
+                <label>ขนาด:</label>
+                <input type="number" id="strokeWidth" class="num-input" value="2" min="1" max="50">
+            </div>
+
+            <div class="control-group">
+                <label>🔄 สมูท:</label>
+                <input type="range" id="smoothLevel" class="smooth-slider" value="1.5" min="0" max="5" step="0.5" title="ระดับความเรียบ">
+            </div>
+
+            <div class="fill-toggle">
+                <input type="checkbox" id="fillShape">
+                <label for="fillShape">🪣 เติมสี</label>
+            </div>
+
+            <div class="control-group">
+                <label>สีเติม:</label>
+                <input type="color" id="fillColor" class="color-picker" value="#E91E63">
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- Canvas size -->
+            <div class="canvas-size-group">
+                <label>📐 ขนาด:</label>
+                <input type="number" id="canvasWidth" class="size-input" value="800" min="100" max="4000">
+                <span class="size-x">×</span>
+                <input type="number" id="canvasHeight" class="size-input" value="600" min="100" max="4000">
+                <button class="apply-size-btn" id="applySizeBtn">ปรับ</button>
+                <div class="size-preset-wrapper">
+                    <button class="size-preset-btn" id="sizePresetBtn">📋 Preset ▾</button>
+                    <div class="size-preset-dropdown" id="sizePresetDropdown">
+                        <!-- Web Icons -->
+                        <div class="preset-category">🔲 ไอคอน / Favicon</div>
+                        <div class="preset-item" data-width="16" data-height="16">
+                            <span class="name">Favicon เล็ก</span>
+                            <span class="size">16 × 16</span>
+                        </div>
+                        <div class="preset-item" data-width="32" data-height="32">
+                            <span class="name">Favicon มาตรฐาน</span>
+                            <span class="size">32 × 32</span>
+                        </div>
+                        <div class="preset-item" data-width="48" data-height="48">
+                            <span class="name">Favicon ใหญ่</span>
+                            <span class="size">48 × 48</span>
+                        </div>
+                        <div class="preset-item" data-width="64" data-height="64">
+                            <span class="name">App Icon เล็ก</span>
+                            <span class="size">64 × 64</span>
+                        </div>
+                        <div class="preset-item" data-width="128" data-height="128">
+                            <span class="name">App Icon กลาง</span>
+                            <span class="size">128 × 128</span>
+                        </div>
+                        <div class="preset-item" data-width="256" data-height="256">
+                            <span class="name">App Icon ใหญ่</span>
+                            <span class="size">256 × 256</span>
+                        </div>
+                        <div class="preset-item" data-width="512" data-height="512">
+                            <span class="name">App Icon HD</span>
+                            <span class="size">512 × 512</span>
+                        </div>
+
+                        <!-- UI Buttons -->
+                        <div class="preset-category">🔘 ปุ่ม UI / Button Icons</div>
+                        <div class="preset-item" data-width="24" data-height="24">
+                            <span class="name">ไอคอนปุ่มเล็ก</span>
+                            <span class="size">24 × 24</span>
+                        </div>
+                        <div class="preset-item" data-width="32" data-height="32">
+                            <span class="name">ไอคอนปุ่มมาตรฐาน</span>
+                            <span class="size">32 × 32</span>
+                        </div>
+                        <div class="preset-item" data-width="48" data-height="48">
+                            <span class="name">ไอคอนปุ่มใหญ่</span>
+                            <span class="size">48 × 48</span>
+                        </div>
+
+                        <!-- Web Logos -->
+                        <div class="preset-category">🏷️ โลโก้เว็บ / Web Logo</div>
+                        <div class="preset-item" data-width="150" data-height="50">
+                            <span class="name">โลโก้ Header เล็ก</span>
+                            <span class="size">150 × 50</span>
+                        </div>
+                        <div class="preset-item" data-width="200" data-height="60">
+                            <span class="name">โลโก้ Header กลาง</span>
+                            <span class="size">200 × 60</span>
+                        </div>
+                        <div class="preset-item" data-width="300" data-height="100">
+                            <span class="name">โลโก้ Header ใหญ่</span>
+                            <span class="size">300 × 100</span>
+                        </div>
+                        <div class="preset-item" data-width="400" data-height="400">
+                            <span class="name">โลโก้สี่เหลี่ยม</span>
+                            <span class="size">400 × 400</span>
+                        </div>
+
+                        <!-- Social Media -->
+                        <div class="preset-category">📱 Social Media</div>
+                        <div class="preset-item" data-width="1200" data-height="630">
+                            <span class="name">Facebook / OG Image</span>
+                            <span class="size">1200 × 630</span>
+                        </div>
+                        <div class="preset-item" data-width="1080" data-height="1080">
+                            <span class="name">Instagram Square</span>
+                            <span class="size">1080 × 1080</span>
+                        </div>
+                        <div class="preset-item" data-width="1080" data-height="1920">
+                            <span class="name">Instagram Story</span>
+                            <span class="size">1080 × 1920</span>
+                        </div>
+                        <div class="preset-item" data-width="1500" data-height="500">
+                            <span class="name">Twitter Header</span>
+                            <span class="size">1500 × 500</span>
+                        </div>
+                        <div class="preset-item" data-width="1280" data-height="720">
+                            <span class="name">YouTube Thumbnail</span>
+                            <span class="size">1280 × 720</span>
+                        </div>
+
+                        <!-- Web Banners -->
+                        <div class="preset-category">🖼️ แบนเนอร์ / Banner</div>
+                        <div class="preset-item" data-width="728" data-height="90">
+                            <span class="name">Leaderboard</span>
+                            <span class="size">728 × 90</span>
+                        </div>
+                        <div class="preset-item" data-width="300" data-height="250">
+                            <span class="name">Medium Rectangle</span>
+                            <span class="size">300 × 250</span>
+                        </div>
+                        <div class="preset-item" data-width="160" data-height="600">
+                            <span class="name">Wide Skyscraper</span>
+                            <span class="size">160 × 600</span>
+                        </div>
+                        <div class="preset-item" data-width="970" data-height="250">
+                            <span class="name">Billboard</span>
+                            <span class="size">970 × 250</span>
+                        </div>
+
+                        <!-- Common Screens -->
+                        <div class="preset-category">🖥️ หน้าจอ / Screen</div>
+                        <div class="preset-item" data-width="1920" data-height="1080">
+                            <span class="name">Full HD</span>
+                            <span class="size">1920 × 1080</span>
+                        </div>
+                        <div class="preset-item" data-width="1366" data-height="768">
+                            <span class="name">Laptop HD</span>
+                            <span class="size">1366 × 768</span>
+                        </div>
+                        <div class="preset-item" data-width="800" data-height="600">
+                            <span class="name">Default</span>
+                            <span class="size">800 × 600</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- Edit actions -->
+            <div class="tool-group">
+                <button class="tool-btn" id="undoBtn" title="ย้อนกลับ">↩️</button>
+                <button class="tool-btn" id="redoBtn" title="ทำซ้ำ">↪️</button>
+                <button class="tool-btn" id="clearBtn" title="ล้างทั้งหมด">🗑️</button>
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- Image to Vector -->
+            <button class="action-btn secondary" id="importImageBtn">
+                <span class="emoji">🖼️</span>
+                <span>นำเข้ารูป</span>
+            </button>
+            <input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+
+            <div class="separator"></div>
+
+            <!-- File actions -->
+            <button class="action-btn secondary" id="loadJsonBtn">
+                <span class="emoji">📂</span>
+                <span>โหลด JSON</span>
+            </button>
+            <button class="action-btn secondary" id="saveJsonBtn">
+                <span class="emoji">💾</span>
+                <span>บันทึก JSON</span>
+            </button>
+            <button class="action-btn primary" id="exportSvgBtn">
+                <span class="emoji">📥</span>
+                <span>ส่งออก SVG</span>
+            </button>
+        </div>
+
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <canvas id="drawingCanvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="statusText">พร้อมวาด</span>
+            <span id="canvasSizeText">ขนาด: 800 × 600</span>
+            <span id="shapeCount">รูปทรง: 0</span>
+        </div>
+    </div>
+
+    <!-- JSON Modal -->
+    <div class="modal" id="jsonModal">
+        <div class="modal-content">
+            <h3 id="modalTitle">JSON Data</h3>
+            <textarea id="jsonTextarea" placeholder="วาง JSON ที่นี่..."></textarea>
+            <div class="modal-actions">
+                <button class="action-btn secondary" id="closeModalBtn">ยกเลิก</button>
+                <button class="action-btn primary" id="confirmModalBtn">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image to Vector Modal -->
+    <div class="modal" id="imageModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h3>🖼️ แปลงรูปเป็น Vector</h3>
+
+            <!-- Zoom Toolbar -->
+            <!-- Preview Mode Toggle -->
+            <div class="preview-mode-toggle">
+                <button class="preview-mode-btn" id="previewRasterBtn" data-mode="raster">🖼️ รูปต้นฉบับ</button>
+                <button class="preview-mode-btn active" id="previewVectorBtn" data-mode="vector">✏️ Vector Preview</button>
+            </div>
+
+            <div class="zoom-toolbar">
+                <button class="zoom-btn" id="zoomOutBtn" title="ย่อ">➖</button>
+                <input type="range" id="imageScale" class="smooth-slider zoom-slider" value="100" min="5" max="400" step="5">
+                <button class="zoom-btn" id="zoomInBtn" title="ขยาย">➕</button>
+                <span class="zoom-value" id="imageScaleValue">100%</span>
+                <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 8px;"></div>
+                <button class="zoom-preset" data-scale="25">25%</button>
+                <button class="zoom-preset" data-scale="50">50%</button>
+                <button class="zoom-preset active" data-scale="100">100%</button>
+                <button class="zoom-preset" data-scale="200">200%</button>
+                <button class="zoom-preset" data-scale="fit" title="พอดีกรอบ">Fit</button>
+            </div>
+
+            <div class="image-preview-container">
+                <canvas id="previewCanvas" style="border-radius: 8px;"></canvas>
+                <div class="preview-loading" id="previewLoading" style="display: none;">กำลังประมวลผล...</div>
+            </div>
+            <div class="image-info" id="imageInfo">รอโหลดรูป...</div>
+
+            <div class="image-controls">
+                <div class="control-row">
+                    <label>🎚️ Threshold:</label>
+                    <input type="range" id="imageThreshold" class="smooth-slider" value="128" min="0" max="255" step="1">
+                    <span id="imageThresholdValue">128</span>
+                </div>
+                <div class="control-row">
+                    <label>🔄 สมูท:</label>
+                    <input type="range" id="imageSmooth" class="smooth-slider" value="2" min="0" max="5" step="0.5">
+                    <span id="imageSmoothValue">2</span>
+                </div>
+                <div class="control-row">
+                    <label>✏️ ความหนาเส้น:</label>
+                    <input type="range" id="imageStrokeWidth" class="smooth-slider" value="1" min="1" max="10" step="1">
+                    <span id="imageStrokeWidthValue">1</span>
+                </div>
+                <div class="control-row">
+                    <label>🎨 สีเส้น:</label>
+                    <input type="color" id="imageStrokeColor" class="color-picker" value="#000000">
+                    <input type="checkbox" id="useOriginalColor" checked>
+                    <label for="useOriginalColor" style="min-width: auto;">ใช้สีจากรูป</label>
+                </div>
+                <div class="control-row">
+                    <label>🌈 จำนวนสี:</label>
+                    <input type="range" id="colorCount" class="smooth-slider" value="8" min="2" max="32" step="1">
+                    <span id="colorCountValue">8</span>
+                </div>
+                <div class="control-row">
+                    <input type="checkbox" id="invertColors">
+                    <label for="invertColors">🔄 กลับสี (Invert)</label>
+                </div>
+                <div class="control-row">
+                    <label>🖌️ โหมด:</label>
+                    <select id="traceMode" class="mode-select">
+                        <option value="edge">เส้นขอบ (Edge)</option>
+                        <option value="color" selected>แยกสี (Color Region)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="action-btn secondary" id="closeImageModalBtn">ยกเลิก</button>
+                <button class="action-btn primary" id="convertImageBtn">✨ แปลงเป็น Vector</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Vector Drawing App
+        class VectorDrawApp {
+            constructor() {
+                this.canvas = document.getElementById('drawingCanvas');
+                this.ctx = this.canvas.getContext('2d');
+
+                // State
+                this.shapes = [];
+                this.undoStack = [];
+                this.redoStack = [];
+                this.currentTool = 'pencil';
+                this.isDrawing = false;
+                this.startX = 0;
+                this.startY = 0;
+                this.currentPath = [];
+                this.previewMode = 'vector'; // 'raster' or 'vector'
+
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.updateCanvasSizeInputs();
+                this.render();
+            }
+
+            bindEvents() {
+                // Tool buttons
+                document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+                    btn.addEventListener('click', () => this.setTool(btn.dataset.tool));
+                });
+
+                // Canvas events
+                this.canvas.addEventListener('mousedown', (e) => this.startDraw(e));
+                this.canvas.addEventListener('mousemove', (e) => this.draw(e));
+                this.canvas.addEventListener('mouseup', () => this.endDraw());
+                this.canvas.addEventListener('mouseleave', () => this.endDraw());
+
+                // Touch support
+                this.canvas.addEventListener('touchstart', (e) => this.handleTouch(e, 'start'));
+                this.canvas.addEventListener('touchmove', (e) => this.handleTouch(e, 'move'));
+                this.canvas.addEventListener('touchend', () => this.endDraw());
+
+                // Action buttons
+                document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+                document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clear());
+                document.getElementById('saveJsonBtn').addEventListener('click', () => this.saveJson());
+                document.getElementById('loadJsonBtn').addEventListener('click', () => this.showLoadModal());
+                document.getElementById('exportSvgBtn').addEventListener('click', () => this.exportSvg());
+
+                // Canvas size
+                document.getElementById('applySizeBtn').addEventListener('click', () => this.applyCanvasSize());
+                document.getElementById('canvasWidth').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.applyCanvasSize();
+                });
+                document.getElementById('canvasHeight').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.applyCanvasSize();
+                });
+
+                // Size presets
+                const presetBtn = document.getElementById('sizePresetBtn');
+                const presetDropdown = document.getElementById('sizePresetDropdown');
+
+                presetBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    presetDropdown.classList.toggle('show');
+                });
+
+                document.querySelectorAll('.preset-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const width = parseInt(item.dataset.width);
+                        const height = parseInt(item.dataset.height);
+                        this.applyPresetSize(width, height);
+                        presetDropdown.classList.remove('show');
+                    });
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!presetBtn.contains(e.target) && !presetDropdown.contains(e.target)) {
+                        presetDropdown.classList.remove('show');
+                    }
+                });
+
+                // Modal
+                document.getElementById('closeModalBtn').addEventListener('click', () => this.closeModal());
+                document.getElementById('confirmModalBtn').addEventListener('click', () => this.confirmModal());
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (e.key === 'z') {
+                            e.preventDefault();
+                            if (e.shiftKey) this.redo();
+                            else this.undo();
+                        } else if (e.key === 's') {
+                            e.preventDefault();
+                            this.saveJson();
+                        }
+                    }
+                });
+
+                // Image to Vector
+                document.getElementById('importImageBtn').addEventListener('click', () => {
+                    document.getElementById('imageFileInput').click();
+                });
+                document.getElementById('imageFileInput').addEventListener('change', (e) => this.loadImage(e));
+                document.getElementById('closeImageModalBtn').addEventListener('click', () => this.closeImageModal());
+                document.getElementById('convertImageBtn').addEventListener('click', () => this.convertImageToVector());
+
+                // Image controls live preview
+                ['imageScale', 'imageThreshold', 'imageSmooth', 'imageStrokeWidth', 'colorCount'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', () => this.updateImagePreview());
+                });
+                document.getElementById('invertColors').addEventListener('change', () => this.updateImagePreview());
+                document.getElementById('traceMode').addEventListener('change', () => this.updateImagePreview());
+                document.getElementById('useOriginalColor').addEventListener('change', () => this.updateImagePreview());
+
+                // Zoom controls
+                document.getElementById('zoomInBtn').addEventListener('click', () => this.adjustZoom(25));
+                document.getElementById('zoomOutBtn').addEventListener('click', () => this.adjustZoom(-25));
+
+                // Zoom presets
+                document.querySelectorAll('.zoom-preset').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const scale = btn.dataset.scale;
+                        if (scale === 'fit') {
+                            this.fitImageToContainer();
+                        } else {
+                            this.setZoom(parseInt(scale));
+                        }
+                        // Update active state
+                        document.querySelectorAll('.zoom-preset').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                    });
+                });
+
+                // Update active preset when slider changes
+                document.getElementById('imageScale').addEventListener('input', () => {
+                    this.updateZoomPresetActive();
+                });
+
+                // Preview mode toggle
+                document.querySelectorAll('.preview-mode-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.previewMode = btn.dataset.mode;
+                        document.querySelectorAll('.preview-mode-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.updateImagePreview();
+                    });
+                });
+            }
+
+            handleTouch(e, type) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                const mockEvent = {
+                    offsetX: (touch.clientX - rect.left) * scaleX,
+                    offsetY: (touch.clientY - rect.top) * scaleY
+                };
+
+                if (type === 'start') this.startDraw(mockEvent);
+                else if (type === 'move') this.draw(mockEvent);
+            }
+
+            setTool(tool) {
+                this.currentTool = tool;
+                document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.tool === tool);
+                });
+                this.updateStatus(`เครื่องมือ: ${this.getToolName(tool)}`);
+            }
+
+            getToolName(tool) {
+                const names = {
+                    pencil: 'ดินสอ ✏️',
+                    line: 'เส้นตรง 📏',
+                    rect: 'สี่เหลี่ยม ⬜',
+                    circle: 'วงกลม ⭕'
+                };
+                return names[tool] || tool;
+            }
+
+            getDrawingOptions() {
+                return {
+                    strokeColor: document.getElementById('strokeColor').value,
+                    strokeWidth: parseInt(document.getElementById('strokeWidth').value) || 2,
+                    fill: document.getElementById('fillShape').checked,
+                    fillColor: document.getElementById('fillColor').value
+                };
+            }
+
+            startDraw(e) {
+                this.isDrawing = true;
+                this.startX = e.offsetX;
+                this.startY = e.offsetY;
+
+                if (this.currentTool === 'pencil') {
+                    this.currentPath = [{ x: this.startX, y: this.startY }];
+                }
+            }
+
+            draw(e) {
+                if (!this.isDrawing) return;
+
+                this.lastX = e.offsetX;
+                this.lastY = e.offsetY;
+                const options = this.getDrawingOptions();
+
+                this.render();
+
+                this.ctx.strokeStyle = options.strokeColor;
+                this.ctx.lineWidth = options.strokeWidth;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+
+                if (options.fill) {
+                    this.ctx.fillStyle = options.fillColor;
+                }
+
+                switch (this.currentTool) {
+                    case 'pencil':
+                        this.currentPath.push({ x: this.lastX, y: this.lastY });
+                        this.drawPath(this.currentPath, options);
+                        break;
+                    case 'line':
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(this.startX, this.startY);
+                        this.ctx.lineTo(this.lastX, this.lastY);
+                        this.ctx.stroke();
+                        break;
+                    case 'rect':
+                        this.ctx.beginPath();
+                        this.ctx.rect(this.startX, this.startY, this.lastX - this.startX, this.lastY - this.startY);
+                        if (options.fill) this.ctx.fill();
+                        this.ctx.stroke();
+                        break;
+                    case 'circle':
+                        const radiusX = Math.abs(this.lastX - this.startX) / 2;
+                        const radiusY = Math.abs(this.lastY - this.startY) / 2;
+                        const centerX = this.startX + (this.lastX - this.startX) / 2;
+                        const centerY = this.startY + (this.lastY - this.startY) / 2;
+                        this.ctx.beginPath();
+                        this.ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+                        if (options.fill) this.ctx.fill();
+                        this.ctx.stroke();
+                        break;
+                }
+            }
+
+            drawPath(path, options) {
+                if (path.length < 2) return;
+
+                this.ctx.strokeStyle = options.strokeColor;
+                this.ctx.lineWidth = options.strokeWidth;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(path[0].x, path[0].y);
+
+                if (path.length === 2) {
+                    this.ctx.lineTo(path[1].x, path[1].y);
+                } else {
+                    // Use quadratic bezier curves for smooth lines
+                    for (let i = 1; i < path.length - 1; i++) {
+                        const xc = (path[i].x + path[i + 1].x) / 2;
+                        const yc = (path[i].y + path[i + 1].y) / 2;
+                        this.ctx.quadraticCurveTo(path[i].x, path[i].y, xc, yc);
+                    }
+                    // Connect to the last point
+                    const last = path[path.length - 1];
+                    this.ctx.lineTo(last.x, last.y);
+                }
+
+                // Fill if enabled
+                if (options.fill) {
+                    this.ctx.closePath();
+                    this.ctx.fillStyle = options.fillColor;
+                    this.ctx.fill();
+                }
+                this.ctx.stroke();
+            }
+
+            // Simplify path using Ramer-Douglas-Peucker algorithm
+            simplifyPath(points, tolerance = 1.5) {
+                if (points.length <= 2) return points;
+
+                // Find the point with maximum distance
+                let maxDist = 0;
+                let maxIndex = 0;
+                const start = points[0];
+                const end = points[points.length - 1];
+
+                for (let i = 1; i < points.length - 1; i++) {
+                    const dist = this.perpendicularDistance(points[i], start, end);
+                    if (dist > maxDist) {
+                        maxDist = dist;
+                        maxIndex = i;
+                    }
+                }
+
+                // If max distance is greater than tolerance, recursively simplify
+                if (maxDist > tolerance) {
+                    const left = this.simplifyPath(points.slice(0, maxIndex + 1), tolerance);
+                    const right = this.simplifyPath(points.slice(maxIndex), tolerance);
+                    return left.slice(0, -1).concat(right);
+                } else {
+                    return [start, end];
+                }
+            }
+
+            perpendicularDistance(point, lineStart, lineEnd) {
+                const dx = lineEnd.x - lineStart.x;
+                const dy = lineEnd.y - lineStart.y;
+
+                if (dx === 0 && dy === 0) {
+                    return Math.sqrt(Math.pow(point.x - lineStart.x, 2) + Math.pow(point.y - lineStart.y, 2));
+                }
+
+                const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy);
+                const nearestX = lineStart.x + t * dx;
+                const nearestY = lineStart.y + t * dy;
+
+                return Math.sqrt(Math.pow(point.x - nearestX, 2) + Math.pow(point.y - nearestY, 2));
+            }
+
+            endDraw() {
+                if (!this.isDrawing) return;
+                this.isDrawing = false;
+
+                const options = this.getDrawingOptions();
+                let shape = null;
+
+                switch (this.currentTool) {
+                    case 'pencil':
+                        if (this.currentPath.length > 1) {
+                            // Simplify path to reduce points and smooth the line
+                            const smoothLevel = parseFloat(document.getElementById('smoothLevel').value) || 1.5;
+                            const simplifiedPoints = smoothLevel > 0
+                                ? this.simplifyPath(this.currentPath, smoothLevel)
+                                : [...this.currentPath];
+                            shape = {
+                                type: 'path',
+                                points: simplifiedPoints,
+                                ...options
+                            };
+                        }
+                        this.currentPath = [];
+                        break;
+                    case 'line':
+                        if (this.lastX !== undefined) {
+                            shape = {
+                                type: 'line',
+                                x1: this.startX,
+                                y1: this.startY,
+                                x2: this.lastX,
+                                y2: this.lastY,
+                                ...options
+                            };
+                        }
+                        break;
+                    case 'rect':
+                        if (this.lastX !== undefined) {
+                            shape = {
+                                type: 'rect',
+                                x: Math.min(this.startX, this.lastX),
+                                y: Math.min(this.startY, this.lastY),
+                                width: Math.abs(this.lastX - this.startX),
+                                height: Math.abs(this.lastY - this.startY),
+                                ...options
+                            };
+                        }
+                        break;
+                    case 'circle':
+                        if (this.lastX !== undefined) {
+                            const radiusX = Math.abs(this.lastX - this.startX) / 2;
+                            const radiusY = Math.abs(this.lastY - this.startY) / 2;
+                            shape = {
+                                type: 'ellipse',
+                                cx: this.startX + (this.lastX - this.startX) / 2,
+                                cy: this.startY + (this.lastY - this.startY) / 2,
+                                rx: radiusX,
+                                ry: radiusY,
+                                ...options
+                            };
+                        }
+                        break;
+                }
+
+                if (shape && (shape.type === 'path' ||
+                    (shape.type === 'line' && (shape.x1 !== shape.x2 || shape.y1 !== shape.y2)) ||
+                    (shape.type === 'rect' && shape.width > 0 && shape.height > 0) ||
+                    (shape.type === 'ellipse' && shape.rx > 0 && shape.ry > 0))) {
+                    this.saveState();
+                    this.shapes.push(shape);
+                    this.redoStack = [];
+                    this.updateShapeCount();
+                }
+
+                this.lastX = undefined;
+                this.lastY = undefined;
+                this.render();
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.shapes.forEach(shape => {
+                    this.ctx.strokeStyle = shape.strokeColor;
+                    this.ctx.lineWidth = shape.strokeWidth;
+                    this.ctx.lineCap = 'round';
+                    this.ctx.lineJoin = 'round';
+
+                    if (shape.fill) {
+                        this.ctx.fillStyle = shape.fillColor;
+                    }
+
+                    switch (shape.type) {
+                        case 'path':
+                            this.drawPath(shape.points, shape);
+                            break;
+                        case 'line':
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(shape.x1, shape.y1);
+                            this.ctx.lineTo(shape.x2, shape.y2);
+                            this.ctx.stroke();
+                            break;
+                        case 'rect':
+                            this.ctx.beginPath();
+                            this.ctx.rect(shape.x, shape.y, shape.width, shape.height);
+                            if (shape.fill) this.ctx.fill();
+                            this.ctx.stroke();
+                            break;
+                        case 'ellipse':
+                            this.ctx.beginPath();
+                            this.ctx.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI * 2);
+                            if (shape.fill) this.ctx.fill();
+                            this.ctx.stroke();
+                            break;
+                    }
+                });
+            }
+
+            applyCanvasSize() {
+                const width = parseInt(document.getElementById('canvasWidth').value) || 800;
+                const height = parseInt(document.getElementById('canvasHeight').value) || 600;
+
+                // Clamp values
+                const newWidth = Math.max(100, Math.min(4000, width));
+                const newHeight = Math.max(100, Math.min(4000, height));
+
+                // Save current image data
+                const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+
+                // Resize canvas
+                this.canvas.width = newWidth;
+                this.canvas.height = newHeight;
+
+                // Restore shapes (re-render)
+                this.render();
+
+                // Update inputs
+                this.updateCanvasSizeInputs();
+                this.updateStatus(`ปรับขนาดเป็น ${newWidth} × ${newHeight}`);
+            }
+
+            applyPresetSize(width, height) {
+                document.getElementById('canvasWidth').value = width;
+                document.getElementById('canvasHeight').value = height;
+                this.applyCanvasSize();
+            }
+
+            updateCanvasSizeInputs() {
+                document.getElementById('canvasWidth').value = this.canvas.width;
+                document.getElementById('canvasHeight').value = this.canvas.height;
+                document.getElementById('canvasSizeText').textContent = `ขนาด: ${this.canvas.width} × ${this.canvas.height}`;
+            }
+
+            saveState() {
+                this.undoStack.push(JSON.stringify(this.shapes));
+                if (this.undoStack.length > 50) {
+                    this.undoStack.shift();
+                }
+            }
+
+            undo() {
+                if (this.undoStack.length === 0) return;
+
+                this.redoStack.push(JSON.stringify(this.shapes));
+                this.shapes = JSON.parse(this.undoStack.pop());
+                this.render();
+                this.updateShapeCount();
+                this.updateStatus('ย้อนกลับ ↩️');
+            }
+
+            redo() {
+                if (this.redoStack.length === 0) return;
+
+                this.undoStack.push(JSON.stringify(this.shapes));
+                this.shapes = JSON.parse(this.redoStack.pop());
+                this.render();
+                this.updateShapeCount();
+                this.updateStatus('ทำซ้ำ ↪️');
+            }
+
+            clear() {
+                if (this.shapes.length === 0) return;
+
+                if (confirm('ต้องการล้างภาพทั้งหมดหรือไม่?')) {
+                    this.saveState();
+                    this.shapes = [];
+                    this.redoStack = [];
+                    this.render();
+                    this.updateShapeCount();
+                    this.updateStatus('ล้างภาพแล้ว 🗑️');
+                }
+            }
+
+            saveJson() {
+                const data = {
+                    version: '1.0',
+                    canvas: {
+                        width: this.canvas.width,
+                        height: this.canvas.height
+                    },
+                    shapes: this.shapes
+                };
+
+                const json = JSON.stringify(data, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'drawing.json';
+                a.click();
+
+                URL.revokeObjectURL(url);
+                this.updateStatus('บันทึก JSON แล้ว 💾');
+            }
+
+            showLoadModal() {
+                document.getElementById('modalTitle').textContent = '📂 โหลด JSON';
+                document.getElementById('jsonTextarea').value = '';
+                document.getElementById('jsonModal').classList.add('show');
+                this.modalMode = 'load';
+            }
+
+            closeModal() {
+                document.getElementById('jsonModal').classList.remove('show');
+            }
+
+            confirmModal() {
+                if (this.modalMode === 'load') {
+                    try {
+                        const json = document.getElementById('jsonTextarea').value;
+                        const data = JSON.parse(json);
+
+                        if (data.shapes && Array.isArray(data.shapes)) {
+                            this.saveState();
+                            this.shapes = data.shapes;
+
+                            if (data.canvas) {
+                                this.canvas.width = data.canvas.width || 800;
+                                this.canvas.height = data.canvas.height || 600;
+                                this.updateCanvasSizeInputs();
+                            }
+
+                            this.render();
+                            this.updateShapeCount();
+                            this.updateStatus('โหลด JSON สำเร็จ ✅');
+                        } else {
+                            alert('รูปแบบ JSON ไม่ถูกต้อง');
+                        }
+                    } catch (e) {
+                        alert('ไม่สามารถอ่าน JSON ได้: ' + e.message);
+                    }
+                }
+                this.closeModal();
+            }
+
+            exportSvg() {
+                let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${this.canvas.width}" height="${this.canvas.height}" viewBox="0 0 ${this.canvas.width} ${this.canvas.height}">
+  <rect width="100%" height="100%" fill="white"/>
+`;
+
+                this.shapes.forEach(shape => {
+                    const stroke = `stroke="${shape.strokeColor}" stroke-width="${shape.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"`;
+                    const fill = shape.fill ? `fill="${shape.fillColor}"` : 'fill="none"';
+
+                    switch (shape.type) {
+                        case 'path':
+                            if (shape.points.length > 1) {
+                                let d = `M ${shape.points[0].x.toFixed(2)} ${shape.points[0].y.toFixed(2)}`;
+                                if (shape.points.length === 2) {
+                                    d += ` L ${shape.points[1].x.toFixed(2)} ${shape.points[1].y.toFixed(2)}`;
+                                } else {
+                                    // Use quadratic bezier curves for smooth SVG paths
+                                    for (let i = 1; i < shape.points.length - 1; i++) {
+                                        const xc = ((shape.points[i].x + shape.points[i + 1].x) / 2).toFixed(2);
+                                        const yc = ((shape.points[i].y + shape.points[i + 1].y) / 2).toFixed(2);
+                                        d += ` Q ${shape.points[i].x.toFixed(2)} ${shape.points[i].y.toFixed(2)} ${xc} ${yc}`;
+                                    }
+                                    const last = shape.points[shape.points.length - 1];
+                                    d += ` L ${last.x.toFixed(2)} ${last.y.toFixed(2)}`;
+                                }
+                                if (shape.fill) {
+                                    d += ' Z'; // Close path for filled shapes
+                                    svg += `  <path d="${d}" ${stroke} fill="${shape.fillColor}"/>\n`;
+                                } else {
+                                    svg += `  <path d="${d}" ${stroke} fill="none"/>\n`;
+                                }
+                            }
+                            break;
+                        case 'line':
+                            svg += `  <line x1="${shape.x1}" y1="${shape.y1}" x2="${shape.x2}" y2="${shape.y2}" ${stroke}/>\n`;
+                            break;
+                        case 'rect':
+                            svg += `  <rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" ${fill} ${stroke}/>\n`;
+                            break;
+                        case 'ellipse':
+                            svg += `  <ellipse cx="${shape.cx}" cy="${shape.cy}" rx="${shape.rx}" ry="${shape.ry}" ${fill} ${stroke}/>\n`;
+                            break;
+                    }
+                });
+
+                svg += '</svg>';
+
+                const blob = new Blob([svg], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'drawing.svg';
+                a.click();
+
+                URL.revokeObjectURL(url);
+                this.updateStatus('ส่งออก SVG แล้ว 📥');
+            }
+
+            updateStatus(text) {
+                document.getElementById('statusText').textContent = text;
+            }
+
+            updateShapeCount() {
+                document.getElementById('shapeCount').textContent = `รูปทรง: ${this.shapes.length}`;
+            }
+
+            // ==================== Image to Vector ====================
+
+            loadImage(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Check file type
+                if (!file.type.startsWith('image/')) {
+                    alert('กรุณาเลือกไฟล์รูปภาพ');
+                    return;
+                }
+
+                // Check file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('ไฟล์ใหญ่เกินไป (สูงสุด 10MB)');
+                    return;
+                }
+
+                this.updateStatus('กำลังโหลดรูป...');
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    this.sourceImage = new Image();
+                    this.sourceImage.onload = () => {
+                        document.getElementById('imageModal').classList.add('show');
+                        this.updateImagePreview();
+                        this.updateStatus('โหลดรูปสำเร็จ');
+                    };
+                    this.sourceImage.onerror = () => {
+                        alert('ไม่สามารถโหลดรูปภาพได้');
+                        this.updateStatus('❌ โหลดรูปไม่สำเร็จ');
+                    };
+                    this.sourceImage.src = event.target.result;
+                };
+                reader.onerror = () => {
+                    alert('ไม่สามารถอ่านไฟล์ได้');
+                    this.updateStatus('❌ อ่านไฟล์ไม่สำเร็จ');
+                };
+                reader.readAsDataURL(file);
+                e.target.value = ''; // Reset input
+            }
+
+            adjustZoom(delta) {
+                const slider = document.getElementById('imageScale');
+                let newValue = parseInt(slider.value) + delta;
+                newValue = Math.max(5, Math.min(400, newValue));
+                slider.value = newValue;
+                this.updateImagePreview();
+                this.updateZoomPresetActive();
+            }
+
+            setZoom(scale) {
+                const slider = document.getElementById('imageScale');
+                slider.value = scale;
+                this.updateImagePreview();
+            }
+
+            fitImageToContainer() {
+                if (!this.sourceImage) return;
+
+                const containerWidth = 650; // Approximate modal content width
+                const containerHeight = 300; // Approximate preview container height
+
+                const scaleX = containerWidth / this.sourceImage.width;
+                const scaleY = containerHeight / this.sourceImage.height;
+                const fitScale = Math.min(scaleX, scaleY, 1) * 100;
+
+                this.setZoom(Math.round(fitScale));
+                this.updateZoomPresetActive();
+            }
+
+            updateZoomPresetActive() {
+                const scale = parseInt(document.getElementById('imageScale').value);
+                document.querySelectorAll('.zoom-preset').forEach(btn => {
+                    const btnScale = btn.dataset.scale;
+                    if (btnScale !== 'fit' && parseInt(btnScale) === scale) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            updateImagePreview() {
+                if (!this.sourceImage) return;
+
+                const scale = parseInt(document.getElementById('imageScale').value) / 100;
+                const threshold = parseInt(document.getElementById('imageThreshold').value);
+                const colorCount = parseInt(document.getElementById('colorCount').value);
+                const invert = document.getElementById('invertColors').checked;
+                const traceMode = document.getElementById('traceMode').value;
+                const smoothLevel = parseFloat(document.getElementById('imageSmooth').value);
+                const strokeWidth = parseInt(document.getElementById('imageStrokeWidth').value);
+                const strokeColor = document.getElementById('imageStrokeColor').value;
+                const useOriginalColor = document.getElementById('useOriginalColor').checked;
+
+                document.getElementById('imageScaleValue').textContent = `${Math.round(scale * 100)}%`;
+                document.getElementById('imageThresholdValue').textContent = threshold;
+                document.getElementById('imageSmoothValue').textContent = smoothLevel;
+                document.getElementById('imageStrokeWidthValue').textContent = strokeWidth;
+                document.getElementById('colorCountValue').textContent = colorCount;
+
+                // Update image info
+                const outputWidth = Math.round(this.sourceImage.width * scale);
+                const outputHeight = Math.round(this.sourceImage.height * scale);
+                document.getElementById('imageInfo').textContent =
+                    `ต้นฉบับ: ${this.sourceImage.width} × ${this.sourceImage.height} px → ผลลัพธ์: ${outputWidth} × ${outputHeight} px`;
+
+                const previewCanvas = document.getElementById('previewCanvas');
+                const ctx = previewCanvas.getContext('2d');
+
+                const width = Math.round(this.sourceImage.width * scale);
+                const height = Math.round(this.sourceImage.height * scale);
+
+                previewCanvas.width = width;
+                previewCanvas.height = height;
+
+                // Draw scaled image
+                ctx.drawImage(this.sourceImage, 0, 0, width, height);
+
+                // Get image data with error handling
+                let imageData;
+                try {
+                    imageData = ctx.getImageData(0, 0, width, height);
+                } catch (e) {
+                    console.warn('Cannot process image data:', e.message);
+                    return;
+                }
+
+                const data = imageData.data;
+
+                // Raster mode - just show processed image
+                if (this.previewMode === 'raster') {
+                    if (traceMode === 'edge') {
+                        for (let i = 0; i < data.length; i += 4) {
+                            const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                            let value = gray < threshold ? 0 : 255;
+                            if (invert) value = 255 - value;
+                            data[i] = data[i + 1] = data[i + 2] = value;
+                        }
+                    } else {
+                        const palette = this.extractColorPalette(data, colorCount);
+                        for (let i = 0; i < data.length; i += 4) {
+                            const color = this.findClosestColor(
+                                { r: data[i], g: data[i + 1], b: data[i + 2] },
+                                palette
+                            );
+                            data[i] = color.r;
+                            data[i + 1] = color.g;
+                            data[i + 2] = color.b;
+                        }
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    return;
+                }
+
+                // Vector mode - trace and draw vectors
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+
+                if (traceMode === 'edge') {
+                    // Edge detection mode
+                    const binary = new Uint8Array(width * height);
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        let value = gray < threshold ? 1 : 0;
+                        if (invert) value = 1 - value;
+                        binary[i / 4] = value;
+                    }
+
+                    const edges = this.sobelEdgeDetection(binary, width, height);
+                    const contours = this.traceContours(edges, width, height);
+                    let drawnCount = 0;
+
+                    contours.forEach(contour => {
+                        if (drawnCount >= 200) return; // Limit for preview performance
+                        if (contour.length < 3) return;
+
+                        const simplified = smoothLevel > 0
+                            ? this.simplifyPath(contour, smoothLevel)
+                            : contour;
+
+                        if (simplified.length >= 2) {
+                            let color = strokeColor;
+                            if (useOriginalColor && contour.length > 0) {
+                                const midPoint = contour[Math.floor(contour.length / 2)];
+                                const idx = (Math.floor(midPoint.y) * width + Math.floor(midPoint.x)) * 4;
+                                if (idx >= 0 && idx < data.length - 2) {
+                                    color = this.rgbToHex(data[idx], data[idx + 1], data[idx + 2]);
+                                }
+                            }
+
+                            this.drawPreviewPath(ctx, simplified, color, strokeWidth);
+                            drawnCount++;
+                        }
+                    });
+                } else {
+                    // Color region mode
+                    const palette = this.extractColorPalette(data, colorCount);
+                    const colorMap = new Int32Array(width * height);
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const color = this.findClosestColor(
+                            { r: data[i], g: data[i + 1], b: data[i + 2] },
+                            palette
+                        );
+                        const colorIndex = palette.findIndex(p =>
+                            p.r === color.r && p.g === color.g && p.b === color.b
+                        );
+                        colorMap[i / 4] = colorIndex;
+                    }
+
+                    let drawnCount = 0;
+                    palette.forEach((color, colorIndex) => {
+                        if (drawnCount >= 200) return;
+                        const regions = this.traceColorRegions(colorMap, width, height, colorIndex);
+                        const hexColor = this.rgbToHex(color.r, color.g, color.b);
+
+                        regions.forEach(region => {
+                            if (drawnCount >= 200) return;
+                            if (region.length < 4) return;
+
+                            const simplified = smoothLevel > 0
+                                ? this.simplifyPath(region, smoothLevel)
+                                : region;
+
+                            if (simplified.length >= 3) {
+                                this.drawPreviewPath(ctx, simplified, hexColor, strokeWidth, true, hexColor);
+                                drawnCount++;
+                            }
+                        });
+                    });
+                }
+            }
+
+            drawPreviewPath(ctx, points, strokeColor, strokeWidth, fill = false, fillColor = null) {
+                if (points.length < 2) return;
+
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = strokeWidth;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+
+                if (points.length === 2) {
+                    ctx.lineTo(points[1].x, points[1].y);
+                } else {
+                    for (let i = 1; i < points.length - 1; i++) {
+                        const xc = (points[i].x + points[i + 1].x) / 2;
+                        const yc = (points[i].y + points[i + 1].y) / 2;
+                        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+                    }
+                    const last = points[points.length - 1];
+                    ctx.lineTo(last.x, last.y);
+                }
+
+                if (fill && fillColor) {
+                    ctx.closePath();
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+                }
+                ctx.stroke();
+            }
+
+            extractColorPalette(data, colorCount) {
+                // Simple color quantization using median cut
+                const colors = [];
+                for (let i = 0; i < data.length; i += 4) {
+                    if (data[i + 3] > 128) { // Skip transparent
+                        colors.push({ r: data[i], g: data[i + 1], b: data[i + 2] });
+                    }
+                }
+
+                if (colors.length === 0) return [{ r: 0, g: 0, b: 0 }];
+
+                // Sample colors to reduce computation
+                const sampleSize = Math.min(colors.length, 10000);
+                const sampled = [];
+                const step = Math.floor(colors.length / sampleSize);
+                for (let i = 0; i < colors.length; i += step) {
+                    sampled.push(colors[i]);
+                }
+
+                return this.medianCut(sampled, colorCount);
+            }
+
+            medianCut(colors, depth) {
+                if (depth <= 1 || colors.length <= 1) {
+                    // Return average color
+                    const avg = { r: 0, g: 0, b: 0 };
+                    colors.forEach(c => {
+                        avg.r += c.r;
+                        avg.g += c.g;
+                        avg.b += c.b;
+                    });
+                    avg.r = Math.round(avg.r / colors.length);
+                    avg.g = Math.round(avg.g / colors.length);
+                    avg.b = Math.round(avg.b / colors.length);
+                    return [avg];
+                }
+
+                // Find the channel with the greatest range
+                let minR = 255, maxR = 0, minG = 255, maxG = 0, minB = 255, maxB = 0;
+                colors.forEach(c => {
+                    minR = Math.min(minR, c.r); maxR = Math.max(maxR, c.r);
+                    minG = Math.min(minG, c.g); maxG = Math.max(maxG, c.g);
+                    minB = Math.min(minB, c.b); maxB = Math.max(maxB, c.b);
+                });
+
+                const rangeR = maxR - minR;
+                const rangeG = maxG - minG;
+                const rangeB = maxB - minB;
+
+                let channel = 'r';
+                if (rangeG >= rangeR && rangeG >= rangeB) channel = 'g';
+                else if (rangeB >= rangeR && rangeB >= rangeG) channel = 'b';
+
+                // Sort by that channel and split
+                colors.sort((a, b) => a[channel] - b[channel]);
+                const mid = Math.floor(colors.length / 2);
+
+                const left = this.medianCut(colors.slice(0, mid), depth / 2);
+                const right = this.medianCut(colors.slice(mid), depth / 2);
+
+                return [...left, ...right];
+            }
+
+            findClosestColor(color, palette) {
+                let minDist = Infinity;
+                let closest = palette[0];
+
+                palette.forEach(p => {
+                    const dist = Math.pow(color.r - p.r, 2) +
+                                 Math.pow(color.g - p.g, 2) +
+                                 Math.pow(color.b - p.b, 2);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = p;
+                    }
+                });
+
+                return closest;
+            }
+
+            rgbToHex(r, g, b) {
+                return '#' + [r, g, b].map(x => {
+                    const hex = x.toString(16);
+                    return hex.length === 1 ? '0' + hex : hex;
+                }).join('');
+            }
+
+            closeImageModal() {
+                document.getElementById('imageModal').classList.remove('show');
+                this.sourceImage = null;
+            }
+
+            convertImageToVector() {
+                if (!this.sourceImage) return;
+
+                this.updateStatus('กำลังแปลง... ⏳');
+
+                // Use setTimeout to allow UI to update
+                setTimeout(() => {
+                    try {
+                        this._processImageToVector();
+                    } catch (e) {
+                        console.error('Image conversion error:', e);
+                        this.updateStatus('❌ เกิดข้อผิดพลาด: ' + e.message);
+                        alert('ไม่สามารถแปลงรูปได้\n\nสาเหตุที่เป็นไปได้:\n• รูปภาพมีขนาดใหญ่เกินไป\n• หน่วยความจำไม่เพียงพอ\n\nลองลดขนาด (Scale) แล้วลองใหม่');
+                    }
+                }, 100);
+            }
+
+            _processImageToVector() {
+                const scale = parseInt(document.getElementById('imageScale').value) / 100;
+                const threshold = parseInt(document.getElementById('imageThreshold').value);
+                const smoothLevel = parseFloat(document.getElementById('imageSmooth').value);
+                const strokeWidth = parseInt(document.getElementById('imageStrokeWidth').value);
+                const strokeColor = document.getElementById('imageStrokeColor').value;
+                const colorCount = parseInt(document.getElementById('colorCount').value);
+                const invert = document.getElementById('invertColors').checked;
+                const traceMode = document.getElementById('traceMode').value;
+                const useOriginalColor = document.getElementById('useOriginalColor').checked;
+
+                // Create temp canvas for processing
+                const tempCanvas = document.createElement('canvas');
+                const ctx = tempCanvas.getContext('2d');
+
+                const width = Math.round(this.sourceImage.width * scale);
+                const height = Math.round(this.sourceImage.height * scale);
+
+                // Limit size to prevent memory issues
+                if (width * height > 4000000) {
+                    throw new Error('รูปภาพใหญ่เกินไป (มากกว่า 4 ล้านพิกเซล)');
+                }
+
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+
+                // Draw and process image
+                ctx.drawImage(this.sourceImage, 0, 0, width, height);
+
+                let imageData;
+                try {
+                    imageData = ctx.getImageData(0, 0, width, height);
+                } catch (e) {
+                    throw new Error('ไม่สามารถอ่านข้อมูลรูปภาพได้ (Canvas Security)');
+                }
+
+                const data = imageData.data;
+
+                // Resize canvas if needed
+                if (width !== this.canvas.width || height !== this.canvas.height) {
+                    this.canvas.width = width;
+                    this.canvas.height = height;
+                    this.updateCanvasSizeInputs();
+                }
+
+                this.saveState();
+                let addedShapes = 0;
+
+                if (traceMode === 'edge') {
+                    // Edge detection mode (original behavior)
+                    const binary = new Uint8Array(width * height);
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        let value = gray < threshold ? 1 : 0;
+                        if (invert) value = 1 - value;
+                        binary[i / 4] = value;
+                    }
+
+                    const edges = this.sobelEdgeDetection(binary, width, height);
+                    const contours = this.traceContours(edges, width, height);
+                    const maxShapes = 500; // Limit shapes to prevent performance issues
+
+                    contours.forEach(contour => {
+                        if (addedShapes >= maxShapes) return;
+                        if (contour.length < 3) return;
+
+                        const simplified = smoothLevel > 0
+                            ? this.simplifyPath(contour, smoothLevel)
+                            : contour;
+
+                        if (simplified.length >= 2) {
+                            // Get color from original image if useOriginalColor
+                            let color = strokeColor;
+                            if (useOriginalColor && contour.length > 0) {
+                                const midPoint = contour[Math.floor(contour.length / 2)];
+                                const idx = (Math.floor(midPoint.y) * width + Math.floor(midPoint.x)) * 4;
+                                color = this.rgbToHex(data[idx], data[idx + 1], data[idx + 2]);
+                            }
+
+                            this.shapes.push({
+                                type: 'path',
+                                points: simplified,
+                                strokeColor: color,
+                                strokeWidth: strokeWidth,
+                                fill: false,
+                                fillColor: '#000000'
+                            });
+                            addedShapes++;
+                        }
+                    });
+                } else {
+                    // Color region mode - create filled shapes for each color region
+                    const palette = this.extractColorPalette(data, colorCount);
+                    const colorMap = new Int32Array(width * height);
+
+                    // Assign each pixel to closest color
+                    for (let i = 0; i < data.length; i += 4) {
+                        const color = this.findClosestColor(
+                            { r: data[i], g: data[i + 1], b: data[i + 2] },
+                            palette
+                        );
+                        const colorIndex = palette.findIndex(p =>
+                            p.r === color.r && p.g === color.g && p.b === color.b
+                        );
+                        colorMap[i / 4] = colorIndex;
+                    }
+
+                    // Trace regions for each color
+                    const maxShapes = 500; // Limit shapes to prevent performance issues
+                    palette.forEach((color, colorIndex) => {
+                        if (addedShapes >= maxShapes) return;
+                        const regions = this.traceColorRegions(colorMap, width, height, colorIndex);
+                        const hexColor = this.rgbToHex(color.r, color.g, color.b);
+
+                        regions.forEach(region => {
+                            if (addedShapes >= maxShapes) return;
+                            if (region.length < 4) return;
+
+                            const simplified = smoothLevel > 0
+                                ? this.simplifyPath(region, smoothLevel)
+                                : region;
+
+                            if (simplified.length >= 3) {
+                                this.shapes.push({
+                                    type: 'path',
+                                    points: simplified,
+                                    strokeColor: hexColor,
+                                    strokeWidth: strokeWidth,
+                                    fill: true,
+                                    fillColor: hexColor
+                                });
+                                addedShapes++;
+                            }
+                        });
+                    });
+                }
+
+                this.render();
+                this.updateShapeCount();
+                this.closeImageModal();
+
+                if (addedShapes === 0) {
+                    this.updateStatus('⚠️ ไม่พบเส้นขอบ - ลองปรับ Threshold หรือเปลี่ยนโหมด');
+                    alert('ไม่พบเส้นขอบในรูปภาพ\n\nลองปรับค่าต่อไปนี้:\n• Threshold: ปรับให้สูงขึ้นหรือต่ำลง\n• โหมด: เปลี่ยนระหว่าง เส้นขอบ/แยกสี\n• กลับสี: เปิด/ปิด Invert');
+                } else {
+                    this.updateStatus(`แปลงสำเร็จ! เพิ่ม ${addedShapes} รูปทรง ✨`);
+                }
+            }
+
+            traceColorRegions(colorMap, width, height, targetColor) {
+                const regions = [];
+                const visited = new Uint8Array(width * height);
+
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const idx = y * width + x;
+
+                        if (colorMap[idx] === targetColor && !visited[idx]) {
+                            // Find boundary of this region using marching squares
+                            const boundary = this.marchingSquares(colorMap, width, height, x, y, targetColor, visited);
+
+                            if (boundary && boundary.length >= 4) {
+                                regions.push(boundary);
+                            }
+                        }
+                    }
+                }
+
+                return regions;
+            }
+
+            marchingSquares(colorMap, width, height, startX, startY, targetColor, visited) {
+                const boundary = [];
+                const isTarget = (x, y) => {
+                    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+                    return colorMap[y * width + x] === targetColor;
+                };
+
+                // Find starting edge point
+                let x = startX, y = startY;
+                while (x > 0 && isTarget(x - 1, y)) x--;
+                while (y > 0 && isTarget(x, y - 1)) y--;
+
+                const startEdgeX = x, startEdgeY = y;
+                let dir = 0; // 0=right, 1=down, 2=left, 3=up
+                const dx = [1, 0, -1, 0];
+                const dy = [0, 1, 0, -1];
+
+                let steps = 0;
+                const maxSteps = width * height;
+
+                do {
+                    // Mark as visited
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        visited[y * width + x] = 1;
+                    }
+
+                    // Add to boundary (sample every few pixels for performance)
+                    if (boundary.length === 0 || steps % 2 === 0) {
+                        boundary.push({ x, y });
+                    }
+
+                    // Find next boundary pixel (turn right, go straight, turn left)
+                    let found = false;
+                    for (let turn = -1; turn <= 2; turn++) {
+                        const newDir = (dir + turn + 4) % 4;
+                        const nx = x + dx[newDir];
+                        const ny = y + dy[newDir];
+
+                        if (isTarget(nx, ny)) {
+                            // Check if this is still on boundary
+                            const hasOutside =
+                                !isTarget(nx + dx[(newDir + 1) % 4], ny + dy[(newDir + 1) % 4]) ||
+                                !isTarget(nx + dx[(newDir + 3) % 4], ny + dy[(newDir + 3) % 4]);
+
+                            if (hasOutside || boundary.length < 4) {
+                                x = nx;
+                                y = ny;
+                                dir = newDir;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!found) break;
+                    steps++;
+
+                } while ((x !== startEdgeX || y !== startEdgeY) && steps < maxSteps && boundary.length < 5000);
+
+                return boundary;
+            }
+
+            sobelEdgeDetection(binary, width, height) {
+                const edges = new Uint8Array(width * height);
+
+                const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+                const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        let gx = 0, gy = 0;
+                        let idx = 0;
+
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const pixel = binary[(y + ky) * width + (x + kx)];
+                                gx += pixel * sobelX[idx];
+                                gy += pixel * sobelY[idx];
+                                idx++;
+                            }
+                        }
+
+                        const magnitude = Math.sqrt(gx * gx + gy * gy);
+                        edges[y * width + x] = magnitude > 0.5 ? 1 : 0;
+                    }
+                }
+
+                return edges;
+            }
+
+            traceContours(edges, width, height) {
+                const contours = [];
+                const visited = new Uint8Array(width * height);
+
+                // Direction vectors for 8-connectivity
+                const dx = [1, 1, 0, -1, -1, -1, 0, 1];
+                const dy = [0, 1, 1, 1, 0, -1, -1, -1];
+
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const idx = y * width + x;
+
+                        if (edges[idx] && !visited[idx]) {
+                            const contour = [];
+                            let cx = x, cy = y;
+                            let dir = 0;
+
+                            // Trace the contour
+                            do {
+                                const cidx = cy * width + cx;
+                                if (!visited[cidx]) {
+                                    contour.push({ x: cx, y: cy });
+                                    visited[cidx] = 1;
+                                }
+
+                                // Find next edge pixel
+                                let found = false;
+                                for (let i = 0; i < 8; i++) {
+                                    const newDir = (dir + i) % 8;
+                                    const nx = cx + dx[newDir];
+                                    const ny = cy + dy[newDir];
+
+                                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                        const nidx = ny * width + nx;
+                                        if (edges[nidx] && !visited[nidx]) {
+                                            cx = nx;
+                                            cy = ny;
+                                            dir = (newDir + 5) % 8; // Turn back
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!found) break;
+
+                            } while (contour.length < 10000); // Safety limit
+
+                            if (contour.length >= 3) {
+                                contours.push(contour);
+                            }
+                        }
+                    }
+                }
+
+                return contours;
+            }
+        }
+
+        // Initialize app
+        const app = new VectorDrawApp();
+    </script>
+</body>
+</html>
