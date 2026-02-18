@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="app-name" content="Screenshot">
+    <meta name="app-icon" content="screenshot_monitor">
+    <meta name="app-color" content="#FF5722">
+    <meta name="app-order" content="4">
+    <title>Screenshot Tool</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: #fff;
+            transition: background 0.3s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel h2 {
+            font-size: 1.1rem;
+            font-weight: 400;
+            margin-bottom: 15px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .folder-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .folder-path {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .folder-path.selected {
+            color: #4ade80;
+            border-color: #4ade80;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #FF5722, #FF7043);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 87, 34, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .capture-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-capture {
+            background: linear-gradient(135deg, #4CAF50, #66BB6A);
+            padding: 16px 32px;
+            font-size: 18px;
+        }
+
+        .btn-capture:hover:not(:disabled) {
+            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status.success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4ade80;
+        }
+
+        .status.error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f87171;
+        }
+
+        .status.info {
+            background: rgba(33, 150, 243, 0.2);
+            color: #60a5fa;
+        }
+
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .file-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+
+        .file-item:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+        }
+
+        .file-thumb {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            background: #000;
+            cursor: pointer;
+        }
+
+        .file-info {
+            padding: 10px;
+        }
+
+        .file-name {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.9);
+            word-break: break-all;
+            margin-bottom: 4px;
+        }
+
+        .file-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .file-actions button {
+            flex: 1;
+            padding: 6px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .file-actions button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .file-actions .material-icons {
+            font-size: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-state .material-icons {
+            font-size: 64px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .counter {
+            background: rgba(255, 87, 34, 0.3);
+            color: #FF7043;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-left: auto;
+        }
+
+        .warning-box {
+            background: rgba(255, 193, 7, 0.15);
+            border-left: 4px solid #FFC107;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .warning-box p {
+            color: #fcd34d;
+            font-size: 14px;
+        }
+
+        .preview-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .preview-modal.active {
+            display: flex;
+        }
+
+        .preview-modal img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .preview-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 600px) {
+            .folder-section, .capture-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+
+            .files-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="../index.html" class="back-btn">
+                <span class="material-icons">arrow_back</span>
+            </a>
+            <h1>
+                <span class="material-icons">screenshot_monitor</span>
+                Screenshot Tool
+            </h1>
+        </div>
+
+        <div class="warning-box">
+            <p>⚠️ ใช้งานได้เฉพาะ Chrome/Edge เท่านั้น | ต้องกด "Allow" เพื่อเลือกหน้าจอที่จะ capture ทุกครั้ง</p>
+        </div>
+
+        <div class="panel">
+            <h2>📁 เลือก Folder ปลายทาง</h2>
+            <div class="folder-section">
+                <div class="folder-path" id="folderPath">ยังไม่ได้เลือก folder</div>
+                <button class="btn btn-secondary" onclick="selectFolder()">
+                    <span class="material-icons">folder_open</span>
+                    เลือก Folder
+                </button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📸 จับภาพหน้าจอ</h2>
+            <div class="capture-section">
+                <button class="btn btn-capture" id="captureBtn" onclick="captureScreen()" disabled>
+                    <span class="material-icons">photo_camera</span>
+                    Screenshot
+                </button>
+                <div class="status info" id="statusBox">
+                    <span class="material-icons">info</span>
+                    เลือก folder ก่อนจึงจะ capture ได้
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <h2 style="margin-bottom: 0;">🖼️ ไฟล์ที่บันทึกแล้ว</h2>
+                <span class="counter" id="fileCounter">0 ไฟล์</span>
+            </div>
+            <div id="filesContainer">
+                <div class="empty-state">
+                    <span class="material-icons">collections</span>
+                    <p>ยังไม่มีภาพที่บันทึก</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-modal" id="previewModal" onclick="closePreview()">
+        <button class="preview-close">
+            <span class="material-icons">close</span>
+        </button>
+        <img id="previewImage" src="" alt="Preview">
+    </div>
+
+    <script>
+        let directoryHandle = null;
+        let capturedFiles = [];
+
+        // Check browser support
+        function checkSupport() {
+            if (!('showDirectoryPicker' in window)) {
+                document.getElementById('statusBox').innerHTML = `
+                    <span class="material-icons">error</span>
+                    Browser ไม่รองรับ - ใช้ Chrome หรือ Edge
+                `;
+                document.getElementById('statusBox').className = 'status error';
+                return false;
+            }
+            return true;
+        }
+
+        // Select destination folder
+        async function selectFolder() {
+            if (!checkSupport()) return;
+
+            try {
+                directoryHandle = await window.showDirectoryPicker({
+                    mode: 'readwrite'
+                });
+
+                document.getElementById('folderPath').textContent = directoryHandle.name;
+                document.getElementById('folderPath').classList.add('selected');
+                document.getElementById('captureBtn').disabled = false;
+
+                updateStatus('success', 'พร้อมใช้งาน - กดปุ่ม Screenshot ได้เลย');
+
+                // Load existing files in folder
+                await loadExistingFiles();
+
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    updateStatus('error', 'เกิดข้อผิดพลาดในการเลือก folder');
+                }
+            }
+        }
+
+        // Load existing screenshot files from folder
+        async function loadExistingFiles() {
+            if (!directoryHandle) return;
+
+            capturedFiles = [];
+
+            try {
+                for await (const entry of directoryHandle.values()) {
+                    if (entry.kind === 'file' && entry.name.match(/\.(png|jpg|jpeg|webp)$/i)) {
+                        const file = await entry.getFile();
+                        const url = URL.createObjectURL(file);
+                        capturedFiles.push({
+                            name: entry.name,
+                            url: url,
+                            time: file.lastModified,
+                            handle: entry
+                        });
+                    }
+                }
+
+                // Sort by time (newest first)
+                capturedFiles.sort((a, b) => b.time - a.time);
+                renderFiles();
+
+            } catch (err) {
+                console.error('Error loading files:', err);
+            }
+        }
+
+        // Capture screen
+        async function captureScreen() {
+            if (!directoryHandle) {
+                updateStatus('error', 'กรุณาเลือก folder ก่อน');
+                return;
+            }
+
+            try {
+                updateStatus('info', 'กำลังเริ่ม capture...');
+
+                // Request screen capture
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        mediaSource: 'screen',
+                        cursor: 'always'
+                    }
+                });
+
+                // Create video element to capture frame
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                await video.play();
+
+                // Wait a moment for video to stabilize
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Create canvas and capture frame
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+
+                // Convert to blob
+                const blob = await new Promise(resolve => {
+                    canvas.toBlob(resolve, 'image/png', 1.0);
+                });
+
+                // Generate filename
+                const now = new Date();
+                const filename = `screenshot_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}.png`;
+
+                // Save to folder
+                const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+
+                // Add to list
+                const url = URL.createObjectURL(blob);
+                capturedFiles.unshift({
+                    name: filename,
+                    url: url,
+                    time: Date.now(),
+                    handle: fileHandle
+                });
+
+                renderFiles();
+                updateStatus('success', `บันทึกแล้ว: ${filename}`);
+
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    updateStatus('info', 'ยกเลิกการ capture');
+                } else {
+                    console.error('Capture error:', err);
+                    updateStatus('error', 'เกิดข้อผิดพลาด: ' + err.message);
+                }
+            }
+        }
+
+        // Update status message
+        function updateStatus(type, message) {
+            const statusBox = document.getElementById('statusBox');
+            const icons = {
+                success: 'check_circle',
+                error: 'error',
+                info: 'info'
+            };
+            statusBox.innerHTML = `<span class="material-icons">${icons[type]}</span>${message}`;
+            statusBox.className = `status ${type}`;
+        }
+
+        // Render files grid
+        function renderFiles() {
+            const container = document.getElementById('filesContainer');
+            const counter = document.getElementById('fileCounter');
+
+            counter.textContent = `${capturedFiles.length} ไฟล์`;
+
+            if (capturedFiles.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-icons">collections</span>
+                        <p>ยังไม่มีภาพที่บันทึก</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="files-grid">
+                    ${capturedFiles.map((file, index) => `
+                        <div class="file-item">
+                            <img class="file-thumb" src="${file.url}" alt="${file.name}" onclick="showPreview('${file.url}')">
+                            <div class="file-info">
+                                <div class="file-name">${file.name}</div>
+                                <div class="file-time">${formatTime(file.time)}</div>
+                                <div class="file-actions">
+                                    <button onclick="downloadFile(${index})" title="Download">
+                                        <span class="material-icons">download</span>
+                                    </button>
+                                    <button onclick="deleteFile(${index})" title="Delete">
+                                        <span class="material-icons">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Format timestamp
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('th-TH', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Show preview modal
+        function showPreview(url) {
+            document.getElementById('previewImage').src = url;
+            document.getElementById('previewModal').classList.add('active');
+        }
+
+        // Close preview modal
+        function closePreview() {
+            document.getElementById('previewModal').classList.remove('active');
+        }
+
+        // Download file
+        function downloadFile(index) {
+            const file = capturedFiles[index];
+            const a = document.createElement('a');
+            a.href = file.url;
+            a.download = file.name;
+            a.click();
+        }
+
+        // Delete file
+        async function deleteFile(index) {
+            const file = capturedFiles[index];
+
+            if (!confirm(`ลบไฟล์ ${file.name} ?`)) return;
+
+            try {
+                await directoryHandle.removeEntry(file.name);
+                URL.revokeObjectURL(file.url);
+                capturedFiles.splice(index, 1);
+                renderFiles();
+                updateStatus('success', 'ลบไฟล์แล้ว');
+            } catch (err) {
+                updateStatus('error', 'ไม่สามารถลบไฟล์ได้');
+            }
+        }
+
+        // Keyboard shortcut
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + Shift + S to capture
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+                e.preventDefault();
+                if (!document.getElementById('captureBtn').disabled) {
+                    captureScreen();
+                }
+            }
+            // Escape to close preview
+            if (e.key === 'Escape') {
+                closePreview();
+            }
+        });
+
+        // Initialize
+        checkSupport();
+    </script>
+</body>
+</html>

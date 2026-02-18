@@ -33,19 +33,17 @@ Create a new HTML file in `Apps/` with these meta tags:
 
 ```html
 <meta name="app-name" content="App Display Name">
-<meta name="app-icon" content="icon_name">  <!-- Material Icon name, emoji, image URL, or inline SVG -->
+<meta name="app-icon" content="icon_name">  <!-- Material Icon name, emoji (🎨), image URL, or inline SVG -->
 <meta name="app-color" content="#HEX">       <!-- Dock icon background -->
 <meta name="app-order" content="1">          <!-- Sort order (lower = first) -->
 ```
 
 Each app is self-contained with inline CSS and JavaScript - no external dependencies.
 
-### Current Apps
+### Key Files
 
-- **convert_to_sql.html**: Converts username lists to Oracle SQL WHERE IN clauses
-- **text_counter.html**: Real-time text statistics (characters, words, lines, etc.)
-- **vector_draw.html**: Vector drawing tool with image-to-vector conversion
-- **settings.html**: App management interface (order: 99)
+- **index.html**: Main launcher with dock, auto-discovers apps via GitHub API
+- **Apps/settings.html**: App management UI and developer guide (excluded from dock)
 
 ## Code Conventions
 
