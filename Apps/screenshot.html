@@ -594,6 +594,9 @@
                                 <div class="file-name">${file.name}</div>
                                 <div class="file-time">${formatTime(file.time)}</div>
                                 <div class="file-actions">
+                                    <button onclick="copyImage(${index})" title="Copy Image">
+                                        <span class="material-icons">content_copy</span>
+                                    </button>
                                     <button onclick="downloadFile(${index})" title="Download">
                                         <span class="material-icons">download</span>
                                     </button>
@@ -629,6 +632,19 @@
         // Close preview modal
         function closePreview() {
             document.getElementById('previewModal').classList.remove('active');
+        }
+
+        // Copy path to clipboard
+        async function copyImage(index) {
+            const file = capturedFiles[index];
+            const path = `${directoryHandle.name}/${file.name}`;
+            try {
+                await navigator.clipboard.writeText(path);
+                updateStatus('success', `คัดลอกแล้ว: ${path}`);
+            } catch (err) {
+                console.error('Copy error:', err);
+                updateStatus('error', 'ไม่สามารถคัดลอกได้');
+            }
         }
 
         // Download file
