@@ -472,6 +472,157 @@
         .filter-tab:hover { background: #e0e0e0; }
         .filter-tab.active { background: #9C27B0; color: white; }
 
+        /* Diff View Styles */
+        .diff-container {
+            display: flex;
+            gap: 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            max-height: 600px;
+        }
+
+        .diff-panel {
+            flex: 1;
+            overflow: auto;
+            background: #fff;
+        }
+
+        .diff-panel.left {
+            border-right: 2px solid #ccc;
+        }
+
+        .diff-header {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            font-weight: 500;
+            font-family: 'Kanit', sans-serif;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .diff-header.corrected {
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+        }
+
+        .diff-content {
+            padding: 0;
+        }
+
+        .diff-line {
+            display: flex;
+            min-height: 24px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .diff-line:hover {
+            background: #f5f5f5;
+        }
+
+        .diff-line-num {
+            min-width: 50px;
+            padding: 4px 8px;
+            background: #f8f8f8;
+            color: #999;
+            text-align: right;
+            border-right: 1px solid #eee;
+            user-select: none;
+            font-size: 11px;
+        }
+
+        .diff-line-text {
+            flex: 1;
+            padding: 4px 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .diff-line.changed {
+            background: #fffde7;
+        }
+
+        .diff-line.changed .diff-line-num {
+            background: #fff9c4;
+            color: #f57f17;
+        }
+
+        .diff-highlight {
+            background: #ffeb3b;
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+
+        .diff-deleted {
+            background: #ffcdd2;
+            text-decoration: line-through;
+            color: #c62828;
+        }
+
+        .diff-added {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .diff-stats {
+            display: flex;
+            gap: 15px;
+            padding: 10px 15px;
+            background: #f5f5f5;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .diff-stats span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .page-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .page-selector label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .page-selector select {
+            padding: 8px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        .page-nav-btn {
+            padding: 8px 12px;
+            border: none;
+            background: #9C27B0;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .page-nav-btn:hover { background: #7B1FA2; }
+        .page-nav-btn:disabled { background: #ccc; cursor: not-allowed; }
+
         .warning-box {
             background: #fff3e0;
             border-left: 4px solid #ff9800;
@@ -492,6 +643,26 @@
             .summary-item { min-width: auto; }
             .api-key-section { flex-direction: column; }
             .upload-area { padding: 30px; }
+            .diff-container {
+                flex-direction: column;
+                max-height: none;
+            }
+            .diff-panel.left {
+                border-right: none;
+                border-bottom: 2px solid #ccc;
+                max-height: 300px;
+            }
+            .diff-panel.right {
+                max-height: 300px;
+            }
+            .page-selector {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .page-selector select {
+                min-width: 100px;
+                flex: 1;
+            }
         }
     </style>
 </head>
@@ -621,13 +792,59 @@
                     <div class="label">ภาษาไทย</div>
                 </div>
             </div>
-            <div class="filter-tabs" id="filterTabs">
-                <button class="filter-tab active" data-filter="all" onclick="filterErrors('all')">ทั้งหมด</button>
-                <button class="filter-tab" data-filter="spelling" onclick="filterErrors('spelling')">สะกดผิด</button>
-                <button class="filter-tab" data-filter="grammar" onclick="filterErrors('grammar')">ไวยากรณ์</button>
-                <button class="filter-tab" data-filter="typographical" onclick="filterErrors('typographical')">พิมพ์ผิด</button>
+
+            <!-- Page Selector -->
+            <div class="page-selector">
+                <label>เลือกหน้า:</label>
+                <button class="page-nav-btn" onclick="navigatePage(-1)" id="prevPageBtn">
+                    <span class="material-icons">chevron_left</span>
+                </button>
+                <select id="pageSelect" onchange="renderDiffView(this.value)"></select>
+                <button class="page-nav-btn" onclick="navigatePage(1)" id="nextPageBtn">
+                    <span class="material-icons">chevron_right</span>
+                </button>
+                <span style="margin-left: auto; font-size: 13px; color: #666;">
+                    <span class="material-icons" style="font-size: 16px; vertical-align: middle;">info</span>
+                    สีเหลือง = มีการแก้ไข
+                </span>
             </div>
-            <div class="error-list" id="errorList"></div>
+
+            <!-- Diff View -->
+            <div class="diff-container" id="diffContainer">
+                <div class="diff-panel left">
+                    <div class="diff-header">
+                        <span class="material-icons">description</span>
+                        ต้นฉบับ (Original)
+                    </div>
+                    <div class="diff-content" id="diffOriginal"></div>
+                </div>
+                <div class="diff-panel right">
+                    <div class="diff-header corrected">
+                        <span class="material-icons">check_circle</span>
+                        แก้ไขแล้ว (Corrected)
+                    </div>
+                    <div class="diff-content" id="diffCorrected"></div>
+                </div>
+            </div>
+            <div class="diff-stats" id="diffStats">
+                <span><span class="material-icons" style="font-size:16px;color:#f44336;">error</span> พบ <strong id="pageErrors">0</strong> คำผิด</span>
+                <span><span class="material-icons" style="font-size:16px;color:#4CAF50;">check</span> แก้ไข <strong id="pageFixes">0</strong> คำ</span>
+            </div>
+
+            <!-- Error List (collapsed by default) -->
+            <details style="margin-top: 15px;">
+                <summary style="cursor: pointer; padding: 10px; background: #f5f5f5; border-radius: 8px; font-weight: 500;">
+                    <span class="material-icons" style="vertical-align: middle; font-size: 18px;">list</span>
+                    รายละเอียดคำผิดทั้งหมด
+                </summary>
+                <div class="filter-tabs" id="filterTabs" style="margin-top: 15px;">
+                    <button class="filter-tab active" data-filter="all" onclick="filterErrors('all')">ทั้งหมด</button>
+                    <button class="filter-tab" data-filter="spelling" onclick="filterErrors('spelling')">สะกดผิด</button>
+                    <button class="filter-tab" data-filter="grammar" onclick="filterErrors('grammar')">ไวยากรณ์</button>
+                    <button class="filter-tab" data-filter="typographical" onclick="filterErrors('typographical')">พิมพ์ผิด</button>
+                </div>
+                <div class="error-list" id="errorList"></div>
+            </details>
         </div>
     </div>
 
@@ -1133,12 +1350,14 @@ ${batchText}`;
             return allErrors;
         }
 
+        let currentPageIndex = 0;
+
         function displayResults(pages, errors) {
             const resultsSection = document.getElementById('resultsSection');
-            const totalPages = document.getElementById('totalPages');
-            const totalErrors = document.getElementById('totalErrors');
+            const totalPagesEl = document.getElementById('totalPages');
+            const totalErrorsEl = document.getElementById('totalErrors');
             const checkedWords = document.getElementById('checkedWords');
-            const thaiPercent = document.getElementById('thaiPercent');
+            const thaiPercentEl = document.getElementById('thaiPercent');
 
             const allText = pages.map(p => p.fullText).join(' ');
             const totalWords = pages.reduce((sum, page) => {
@@ -1147,11 +1366,24 @@ ${batchText}`;
 
             const thaiPct = calculateThaiPercent(allText);
 
-            totalPages.textContent = pages.length;
-            totalErrors.textContent = errors.length;
+            totalPagesEl.textContent = pages.length;
+            totalErrorsEl.textContent = errors.length;
             checkedWords.textContent = totalWords.toLocaleString();
-            thaiPercent.textContent = thaiPct + '%';
+            thaiPercentEl.textContent = thaiPct + '%';
 
+            // Populate page selector
+            const pageSelect = document.getElementById('pageSelect');
+            pageSelect.innerHTML = pages.map((p, i) => {
+                const pageErrors = errors.filter(e => e.page === p.pageNum).length;
+                const badge = pageErrors > 0 ? ` (${pageErrors} คำผิด)` : ' ✓';
+                return `<option value="${i}">หน้า ${p.pageNum}${badge}</option>`;
+            }).join('');
+
+            // Render diff view for first page
+            currentPageIndex = 0;
+            renderDiffView(0);
+
+            // Render error list
             if (errors.length === 0) {
                 document.getElementById('errorList').innerHTML = `
                     <div class="no-errors">
@@ -1166,6 +1398,131 @@ ${batchText}`;
 
             resultsSection.classList.add('show');
             resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function navigatePage(delta) {
+            const newIndex = currentPageIndex + delta;
+            if (newIndex >= 0 && newIndex < extractedText.length) {
+                currentPageIndex = newIndex;
+                document.getElementById('pageSelect').value = newIndex;
+                renderDiffView(newIndex);
+            }
+        }
+
+        function renderDiffView(pageIndex) {
+            pageIndex = parseInt(pageIndex);
+            currentPageIndex = pageIndex;
+
+            const page = extractedText[pageIndex];
+            const pageErrors = spellCheckResults.filter(e => e.page === page.pageNum);
+
+            const diffOriginal = document.getElementById('diffOriginal');
+            const diffCorrected = document.getElementById('diffCorrected');
+            const pageErrorsEl = document.getElementById('pageErrors');
+            const pageFixesEl = document.getElementById('pageFixes');
+
+            // Update nav buttons
+            document.getElementById('prevPageBtn').disabled = pageIndex === 0;
+            document.getElementById('nextPageBtn').disabled = pageIndex === extractedText.length - 1;
+
+            // Build error map by line
+            const errorsByLine = {};
+            pageErrors.forEach(err => {
+                if (!errorsByLine[err.line]) {
+                    errorsByLine[err.line] = [];
+                }
+                errorsByLine[err.line].push(err);
+            });
+
+            // Render original and corrected side by side
+            let originalHTML = '';
+            let correctedHTML = '';
+
+            page.lines.forEach((line, idx) => {
+                const lineNum = idx + 1;
+                const lineErrors = errorsByLine[lineNum] || [];
+                const hasErrors = lineErrors.length > 0;
+                const lineClass = hasErrors ? 'diff-line changed' : 'diff-line';
+
+                // Original line with highlights
+                let originalLine = escapeHtml(line);
+                let correctedLine = escapeHtml(line);
+
+                if (hasErrors) {
+                    // Sort errors by position (reverse to avoid index shifting)
+                    lineErrors.sort((a, b) => {
+                        const posA = line.indexOf(a.wrong);
+                        const posB = line.indexOf(b.wrong);
+                        return posB - posA;
+                    });
+
+                    lineErrors.forEach(err => {
+                        const wrongEscaped = escapeHtml(err.wrong);
+                        const correctFirst = err.correct.split(' / ')[0] || err.wrong;
+                        const correctEscaped = escapeHtml(correctFirst);
+
+                        // Highlight in original (yellow with strikethrough)
+                        originalLine = originalLine.replace(
+                            wrongEscaped,
+                            `<span class="diff-highlight diff-deleted">${wrongEscaped}</span>`
+                        );
+
+                        // Replace in corrected (green highlight)
+                        if (correctFirst !== '(ตรวจสอบ)' && correctFirst !== '-') {
+                            correctedLine = correctedLine.replace(
+                                wrongEscaped,
+                                `<span class="diff-highlight diff-added">${correctEscaped}</span>`
+                            );
+                        } else {
+                            correctedLine = correctedLine.replace(
+                                wrongEscaped,
+                                `<span class="diff-highlight">${wrongEscaped}</span>`
+                            );
+                        }
+                    });
+                }
+
+                originalHTML += `
+                    <div class="${lineClass}">
+                        <div class="diff-line-num">${lineNum}</div>
+                        <div class="diff-line-text">${originalLine || '&nbsp;'}</div>
+                    </div>
+                `;
+
+                correctedHTML += `
+                    <div class="${lineClass}">
+                        <div class="diff-line-num">${lineNum}</div>
+                        <div class="diff-line-text">${correctedLine || '&nbsp;'}</div>
+                    </div>
+                `;
+            });
+
+            diffOriginal.innerHTML = originalHTML;
+            diffCorrected.innerHTML = correctedHTML;
+
+            // Update stats
+            pageErrorsEl.textContent = pageErrors.length;
+            pageFixesEl.textContent = pageErrors.filter(e =>
+                e.correct && e.correct !== '(ตรวจสอบ)' && e.correct !== '-'
+            ).length;
+
+            // Sync scroll between panels
+            syncScroll();
+        }
+
+        function syncScroll() {
+            const leftPanel = document.querySelector('.diff-panel.left');
+            const rightPanel = document.querySelector('.diff-panel.right');
+
+            leftPanel.onscroll = () => {
+                rightPanel.scrollTop = leftPanel.scrollTop;
+                rightPanel.scrollLeft = leftPanel.scrollLeft;
+            };
+
+            rightPanel.onscroll = () => {
+                leftPanel.scrollTop = rightPanel.scrollTop;
+                leftPanel.scrollLeft = rightPanel.scrollLeft;
+            };
         }
 
         function renderErrors(errors, filter = 'all') {
