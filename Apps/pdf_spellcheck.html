@@ -633,6 +633,78 @@
             color: #e65100;
         }
 
+        /* Page Range Selector */
+        .page-range-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            flex-wrap: wrap;
+        }
+
+        .page-range-section label {
+            font-weight: 500;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .page-range-section .material-icons {
+            color: #9C27B0;
+            font-size: 20px;
+        }
+
+        .page-range-input {
+            width: 80px;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 14px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .page-range-input:focus {
+            outline: none;
+            border-color: #9C27B0;
+        }
+
+        .page-range-input:disabled {
+            background: #eee;
+            color: #999;
+        }
+
+        .range-separator {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .page-range-info {
+            font-size: 13px;
+            color: #666;
+            margin-left: auto;
+        }
+
+        .check-all-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .check-all-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #9C27B0;
+        }
+
         @media (max-width: 768px) {
             .mode-selector { flex-direction: column; }
             .summary {
@@ -662,6 +734,14 @@
             .page-selector select {
                 min-width: 100px;
                 flex: 1;
+            }
+            .page-range-section {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .page-range-info {
+                margin-left: 0;
             }
         }
     </style>
@@ -752,6 +832,23 @@
                     <p id="fileSize"></p>
                 </div>
             </div>
+
+            <!-- Page Range Selection -->
+            <div class="page-range-section" id="pageRangeSection" style="display: none;">
+                <label>
+                    <span class="material-icons">auto_stories</span>
+                    ช่วงหน้า:
+                </label>
+                <input type="number" id="startPage" class="page-range-input" min="1" value="1" placeholder="เริ่ม">
+                <span class="range-separator">ถึง</span>
+                <input type="number" id="endPage" class="page-range-input" min="1" value="1" placeholder="สิ้นสุด">
+                <label class="check-all-label">
+                    <input type="checkbox" id="checkAllPages" checked onchange="togglePageRange()">
+                    ตรวจทุกหน้า
+                </label>
+                <span class="page-range-info" id="pageRangeInfo">รอโหลดไฟล์...</span>
+            </div>
+
             <button class="check-btn" id="checkBtn" onclick="startSpellCheck()" disabled>
                 <span class="material-icons">spellcheck</span>
                 เริ่มตรวจคำผิด
@@ -856,6 +953,43 @@
         let extractedText = [];
         let spellCheckResults = [];
         let currentMode = 'free';
+        let totalPdfPages = 0;
+
+        // Toggle page range inputs
+        function togglePageRange() {
+            const checkAll = document.getElementById('checkAllPages').checked;
+            const startPage = document.getElementById('startPage');
+            const endPage = document.getElementById('endPage');
+
+            startPage.disabled = checkAll;
+            endPage.disabled = checkAll;
+
+            if (checkAll && totalPdfPages > 0) {
+                startPage.value = 1;
+                endPage.value = totalPdfPages;
+            }
+        }
+
+        // Update page range info after PDF loaded
+        async function updatePageRangeInfo(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                totalPdfPages = pdf.numPages;
+
+                document.getElementById('startPage').value = 1;
+                document.getElementById('startPage').max = totalPdfPages;
+                document.getElementById('endPage').value = totalPdfPages;
+                document.getElementById('endPage').max = totalPdfPages;
+                document.getElementById('pageRangeInfo').textContent = `ทั้งหมด ${totalPdfPages} หน้า`;
+                document.getElementById('pageRangeSection').style.display = 'flex';
+
+                togglePageRange();
+            } catch (error) {
+                console.error('Error reading PDF pages:', error);
+                document.getElementById('pageRangeInfo').textContent = 'ไม่สามารถอ่านจำนวนหน้าได้';
+            }
+        }
 
         // Mode selection
         function selectMode(mode) {
@@ -998,6 +1132,9 @@
             document.getElementById('fileSize').textContent = formatFileSize(file.size);
             document.getElementById('fileInfo').style.display = 'flex';
             document.getElementById('checkBtn').disabled = false;
+
+            // Load page count for range selection
+            updatePageRangeInfo(file);
         }
 
         function formatFileSize(bytes) {
@@ -1034,17 +1171,35 @@
                 progressText.textContent = 'กำลังอ่านไฟล์ PDF...';
                 progressFill.style.width = '10%';
 
-                extractedText = await extractTextFromPDF(pdfFile);
+                const allPages = await extractTextFromPDF(pdfFile);
 
-                progressText.textContent = `อ่านได้ ${extractedText.length} หน้า กำลังตรวจคำผิด...`;
+                // Filter pages based on range
+                const checkAll = document.getElementById('checkAllPages').checked;
+                let startPage = parseInt(document.getElementById('startPage').value) || 1;
+                let endPage = parseInt(document.getElementById('endPage').value) || allPages.length;
+
+                // Validate range
+                startPage = Math.max(1, Math.min(startPage, allPages.length));
+                endPage = Math.max(startPage, Math.min(endPage, allPages.length));
+
+                if (checkAll) {
+                    extractedText = allPages;
+                } else {
+                    extractedText = allPages.filter(p => p.pageNum >= startPage && p.pageNum <= endPage);
+                }
+
+                const rangeText = checkAll ? '' : ` (หน้า ${startPage}-${endPage})`;
+                progressText.textContent = `อ่านได้ ${extractedText.length} หน้า${rangeText} กำลังตรวจคำผิด...`;
                 progressFill.style.width = '30%';
 
                 // Step 2: Spell check based on mode
                 if (currentMode === 'free') {
-                    spellCheckResults = await checkSpellingWithLanguageTool(extractedText, (progress) => {
+                    spellCheckResults = await checkSpellingWithLanguageTool(extractedText, (progress, status) => {
                         const percent = 30 + (progress * 60);
                         progressFill.style.width = percent + '%';
-                        progressText.textContent = `กำลังตรวจหน้า ${Math.ceil(progress * extractedText.length)} / ${extractedText.length}`;
+                        const pageNum = Math.ceil(progress * extractedText.length);
+                        const statusText = status || '';
+                        progressText.textContent = `กำลังตรวจหน้า ${pageNum} / ${extractedText.length} ${statusText}`;
                     });
                 } else {
                     const apiKey = localStorage.getItem('claude_api_key');
@@ -1129,8 +1284,15 @@
         // Longdo Spell Checker API (Free 100,000 requests/month, uses LibThai)
         // API Docs: https://api.longdo.com/spell-checker/docs
         const LONGDO_API_URL = 'https://api.longdo.com/spell-checker/proof';
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY = 2000; // 2 seconds
 
-        async function checkThaiWithLongdo(text, apiKey) {
+        // Helper function to delay
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function checkThaiWithLongdo(text, apiKey, retryCount = 0) {
             try {
                 const response = await fetch(LONGDO_API_URL, {
                     method: 'POST',
@@ -1150,12 +1312,27 @@
 
                 const data = await response.json();
 
+                // Handle Overloaded error with retry
                 if (data.status !== 200) {
-                    throw new Error(data.message || 'Longdo API error');
+                    const errorMsg = data.message || 'Longdo API error';
+
+                    if (errorMsg.includes('Overloaded') && retryCount < MAX_RETRIES) {
+                        console.log(`Longdo API overloaded, retry ${retryCount + 1}/${MAX_RETRIES}...`);
+                        await delay(RETRY_DELAY * (retryCount + 1)); // Exponential backoff
+                        return checkThaiWithLongdo(text, apiKey, retryCount + 1);
+                    }
+
+                    throw new Error(errorMsg);
                 }
 
                 return data.result || [];
             } catch (error) {
+                // Retry on network errors
+                if (retryCount < MAX_RETRIES && !error.message.includes('API Key')) {
+                    console.log(`Longdo API error, retry ${retryCount + 1}/${MAX_RETRIES}...`);
+                    await delay(RETRY_DELAY * (retryCount + 1));
+                    return checkThaiWithLongdo(text, apiKey, retryCount + 1);
+                }
                 console.error('Longdo API error:', error);
                 return [];
             }
@@ -1169,8 +1346,12 @@
             const hasThai = /[\u0E00-\u0E7F]/.test(text);
             if (!hasThai) return errors;
 
+            // Limit text length to avoid API issues (1024 char limit)
+            const maxLen = 1024;
+            const textToCheck = text.length > maxLen ? text.substring(0, maxLen) : text;
+
             try {
-                const results = await checkThaiWithLongdo(text, longdoApiKey);
+                const results = await checkThaiWithLongdo(textToCheck, longdoApiKey);
 
                 results.forEach(item => {
                     // Find which line this error is on
@@ -1213,10 +1394,16 @@
         async function checkSpellingWithLanguageTool(pages, onProgress) {
             const allErrors = [];
             const longdoApiKey = getLongdoApiKey();
+            const REQUEST_DELAY = 500; // 500ms between requests to avoid overload
 
             for (let i = 0; i < pages.length; i++) {
                 const page = pages[i];
                 const text = page.fullText;
+
+                // Add delay between pages to avoid API overload
+                if (i > 0) {
+                    await delay(REQUEST_DELAY);
+                }
 
                 // 1. Check Thai spelling using Longdo API (LibThai)
                 const thaiErrors = await checkThaiSpelling(text, page.pageNum, page.lines, longdoApiKey);
@@ -1269,7 +1456,7 @@
                     console.error('LanguageTool error for page', i + 1, error);
                 }
 
-                onProgress((i + 1) / pages.length);
+                onProgress((i + 1) / pages.length, '');
             }
 
             return allErrors;
@@ -1284,19 +1471,42 @@
                 const batch = pages.slice(i, i + batchSize);
                 const batchText = batch.map(p => `=== หน้า ${p.pageNum} ===\n${p.lines.map((line, idx) => `[บรรทัด ${idx + 1}] ${line}`).join('\n')}`).join('\n\n');
 
-                const prompt = `คุณเป็นผู้เชี่ยวชาญด้านการตรวจคำผิดทั้งภาษาไทยและภาษาอังกฤษ กรุณาตรวจสอบข้อความต่อไปนี้และหาคำผิด
+                const prompt = `คุณเป็นผู้เชี่ยวชาญด้านการตรวจคำพิมพ์ผิด (Typo) ทั้งภาษาไทยและภาษาอังกฤษ
+
+หน้าที่ของคุณ: ตรวจหาคำที่พิมพ์ผิดเท่านั้น (ตัวอักษรหาย ตัวอักษรผิด วรรณยุกต์หาย สระหาย)
+
+ตัวอย่างคำพิมพ์ผิด:
+- "ศึกษำ" → "ศึกษา" (ำ ต้องเป็น า)
+- "ควำม" → "ความ" (ำ ต้องเป็น า)
+- "วิเครำะห์" → "วิเคราะห์" (ำ ต้องเป็น า)
+- "ต้องกำร" → "ต้องการ" (ำ ต้องเป็น า)
+- "กำลังแพด" → "กำลังแพทย์" (ขาด ทย์)
+- "นักสึกษา" → "นักศึกษา" (ศ เป็น ส)
+- "ประเทษ" → "ประเทศ" (ษ เป็น ศ)
+- "เปน" → "เป็น" (ขาดวรรณยุกต์)
+- "ได" → "ได้" (ขาดวรรณยุกต์)
+- "Requrement" → "Requirement" (ขาด i)
+
+ข้อผิดพลาดที่พบบ่อยจาก OCR/PDF:
+- สระ ำ กับ า สลับกัน (ต้องตรวจให้ละเอียด!)
+- ตัวอักษรที่คล้ายกันสลับกัน เช่น ษ/ศ, ฎ/ฏ, ฐ/ฑ
+
+สิ่งที่ไม่ใช่คำพิมพ์ผิด (ห้ามแก้):
+- คำที่สะกดถูกต้องแล้ว แม้จะเป็นคำที่ไม่คุ้นเคย
+- "กำลังแพทย์" = ถูกต้อง (เป็นนามสกุล ไม่ต้องแก้)
+- ห้ามเปลี่ยนคำหนึ่งเป็นอีกคำหนึ่งที่ต่างกันโดยสิ้นเชิง
 
 ให้ตอบในรูปแบบ JSON array เท่านั้น โดยแต่ละรายการมี:
 - page: หมายเลขหน้า
 - line: หมายเลขบรรทัด
-- wrong: คำที่ผิด
-- correct: คำที่ถูก (ถ้ามีหลายตัวเลือกให้คั่นด้วย / )
-- type: ประเภท ("spelling" = สะกดผิด, "grammar" = ไวยากรณ์, "style" = รูปแบบ)
+- wrong: คำที่พิมพ์ผิด
+- correct: คำที่ถูกต้อง
+- type: "spelling"
 - context: ข้อความบริบทรอบๆ คำผิด (ประมาณ 50 ตัวอักษร)
 
 หมายเหตุ:
-- ตรวจทั้งภาษาไทยและภาษาอังกฤษ
-- หากไม่พบคำผิดให้ตอบ []
+- ตรวจทุกคำรวมถึงชื่อ-นามสกุล (แต่ต้องเป็นการพิมพ์ผิดจริงๆ)
+- หากไม่พบคำพิมพ์ผิดให้ตอบ []
 - ตอบเฉพาะ JSON array เท่านั้น
 
 ข้อความที่ต้องตรวจ:
@@ -1335,13 +1545,39 @@ ${batchText}`;
                     const data = await response.json();
                     const content = data.content[0].text;
 
-                    const jsonMatch = content.match(/\[[\s\S]*\]/);
+                    // Try to extract and parse JSON array
+                    const jsonMatch = content.match(/\[[\s\S]*?\]/);
                     if (jsonMatch) {
-                        const errors = JSON.parse(jsonMatch[0]);
-                        allErrors.push(...errors);
+                        try {
+                            // Clean up the JSON string
+                            let jsonStr = jsonMatch[0]
+                                .replace(/[\x00-\x1F\x7F]/g, ' ')  // Remove control characters
+                                .replace(/,\s*]/g, ']')            // Remove trailing commas
+                                .replace(/,\s*}/g, '}');           // Remove trailing commas in objects
+
+                            const errors = JSON.parse(jsonStr);
+                            if (Array.isArray(errors)) {
+                                allErrors.push(...errors);
+                            }
+                        } catch (parseError) {
+                            console.warn('JSON parse error, trying line by line:', parseError);
+                            // Try to extract individual error objects
+                            const objectMatches = content.matchAll(/\{[^{}]*"wrong"[^{}]*\}/g);
+                            for (const match of objectMatches) {
+                                try {
+                                    const obj = JSON.parse(match[0]);
+                                    if (obj.wrong && obj.page) {
+                                        allErrors.push(obj);
+                                    }
+                                } catch (e) {
+                                    // Skip malformed objects
+                                }
+                            }
+                        }
                     }
                 } catch (error) {
-                    throw error;
+                    console.error('Claude API error:', error);
+                    // Continue with other pages instead of throwing
                 }
 
                 onProgress((i + batchSize) / pages.length);
