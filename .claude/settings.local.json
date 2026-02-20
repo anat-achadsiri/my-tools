@@ -11,7 +11,13 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Text Counter app\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(tree:*)",
       "Bash(wc:*)",
-      "Bash(powershell.exe -c \"\\(Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum\\).sum /1gb\")"
+      "Bash(powershell.exe -c \"\\(Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum\\).sum /1gb\")",
+      "WebSearch",
+      "WebFetch(domain:api.longdo.com)",
+      "WebFetch(domain:sapling.ai)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
