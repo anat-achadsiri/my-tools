@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="app-name" content="กรอกแบบฟอร์ม PDF">
+    <meta name="app-icon" content="edit_document">
+    <meta name="app-color" content="#1976D2">
+    <meta name="app-order" content="6">
+    <title>กรอกแบบฟอร์ม PDF</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(135deg, #1976D2 0%, #0D47A1 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        h1 {
+            font-weight: 500;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            flex: 1;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tool-btn {
+            padding: 10px 16px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-family: 'Kanit', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .tool-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        .tool-btn.primary {
+            background: #4CAF50;
+        }
+
+        .tool-btn.primary:hover {
+            background: #43A047;
+        }
+
+        .tool-btn.warning {
+            background: #FF9800;
+        }
+
+        .tool-btn .material-icons {
+            font-size: 20px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .material-icons {
+            color: #1976D2;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 3px dashed #e0e0e0;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #1976D2;
+            background: #e3f2fd;
+        }
+
+        .upload-area .material-icons {
+            font-size: 64px;
+            color: #1976D2;
+            margin-bottom: 15px;
+        }
+
+        .upload-area p { color: #666; font-size: 1.1rem; }
+        .upload-area small { color: #999; display: block; margin-top: 10px; }
+
+        #fileInput, #loadDataInput { display: none; }
+
+        /* PDF Viewer */
+        .pdf-viewer {
+            display: none;
+            position: relative;
+            background: #333;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .pdf-viewer.show { display: block; }
+
+        .pdf-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 12px;
+            background: #222;
+            color: white;
+        }
+
+        .page-btn {
+            padding: 8px 12px;
+            background: #1976D2;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .page-btn:hover { background: #1565C0; }
+        .page-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .page-info { font-size: 14px; }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 20px;
+        }
+
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            background: #444;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover { background: #555; }
+
+        .zoom-value {
+            width: 60px;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            overflow: auto;
+            max-height: 75vh;
+            background: #555;
+        }
+
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px;
+        }
+
+        #pdfCanvas {
+            display: block;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Text Fields Overlay */
+        .fields-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .fields-overlay.mode-select {
+            cursor: default;
+        }
+
+        .text-field {
+            position: absolute;
+            cursor: move;
+        }
+
+        .text-field input, .text-field textarea {
+            width: calc(100% - 20px);
+            height: 100%;
+            border: 2px solid #1976D2;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.9);
+            padding: 4px 8px;
+            font-family: 'Sarabun', 'Kanit', sans-serif;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .text-field .drag-handle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 20px;
+            height: 100%;
+            background: #1976D2;
+            border-radius: 0 4px 4px 0;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .text-field .drag-handle::after {
+            content: '⋮⋮';
+            color: white;
+            font-size: 10px;
+            letter-spacing: -2px;
+        }
+
+        .text-field input:focus, .text-field textarea:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76,175,80,0.2);
+        }
+
+        .text-field.selected input, .text-field.selected textarea {
+            border-color: #E91E63;
+        }
+
+        .text-field .field-handle {
+            position: absolute;
+            right: -8px;
+            bottom: -8px;
+            width: 16px;
+            height: 16px;
+            background: #1976D2;
+            border-radius: 50%;
+            cursor: se-resize;
+            display: none;
+        }
+
+        .text-field.selected .field-handle {
+            display: block;
+        }
+
+        .text-field .delete-btn {
+            position: absolute;
+            right: -10px;
+            top: -10px;
+            width: 20px;
+            height: 20px;
+            background: #F44336;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .text-field.selected .delete-btn {
+            display: flex;
+        }
+
+        /* Checkbox Field */
+        .checkbox-field {
+            position: absolute;
+            cursor: move;
+        }
+
+        .checkbox-field .checkbox-box {
+            width: 100%;
+            height: 100%;
+            border: 2px solid #1976D2;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .checkbox-field .checkbox-box:hover {
+            background: #e3f2fd;
+        }
+
+        .checkbox-field.checked .checkbox-box {
+            background: #4CAF50;
+            border-color: #4CAF50;
+        }
+
+        .checkbox-field.checked .checkbox-box::after {
+            content: '✓';
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .checkbox-field.selected .checkbox-box {
+            border-color: #E91E63;
+        }
+
+        .checkbox-field .delete-btn {
+            position: absolute;
+            right: -10px;
+            top: -10px;
+            width: 20px;
+            height: 20px;
+            background: #F44336;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .checkbox-field.selected .delete-btn {
+            display: flex;
+        }
+
+        /* Side Panel */
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .mode-btn:hover { border-color: #1976D2; }
+
+        .mode-btn.active {
+            border-color: #1976D2;
+            background: #e3f2fd;
+        }
+
+        .mode-btn .material-icons {
+            font-size: 24px;
+            color: #1976D2;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .mode-btn span:last-child {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .field-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .field-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .field-item:hover { background: #e3f2fd; }
+        .field-item.active { background: #bbdefb; }
+
+        .field-item .material-icons {
+            color: #1976D2;
+            font-size: 20px;
+        }
+
+        .field-item-info {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .field-item-info .field-name { font-weight: 500; color: #333; }
+        .field-item-info .field-pos { font-size: 11px; color: #999; }
+
+        .field-settings {
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .setting-row {
+            margin-bottom: 12px;
+        }
+
+        .setting-row label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .setting-row input, .setting-row select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 14px;
+        }
+
+        .setting-row input:focus, .setting-row select:focus {
+            outline: none;
+            border-color: #1976D2;
+        }
+
+        .hint-box {
+            padding: 12px;
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #e65100;
+        }
+
+        .hint-box .material-icons {
+            font-size: 16px;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+
+        /* Saved Data List */
+        .saved-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .saved-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .saved-item:hover { background: #e8f5e9; }
+
+        .saved-item .material-icons { color: #4CAF50; }
+
+        .saved-item-info {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .saved-item-info .save-name { font-weight: 500; color: #333; }
+        .saved-item-info .save-date { font-size: 11px; color: #999; }
+
+        .saved-item .delete-save {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            color: #999;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .saved-item .delete-save:hover {
+            background: #ffebee;
+            color: #F44336;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .empty-state .material-icons {
+            font-size: 40px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-family: 'Kanit', sans-serif;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #1976D2;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Kanit', sans-serif;
+            cursor: pointer;
+        }
+
+        .modal-btn.cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .modal-btn.confirm {
+            background: #1976D2;
+            color: white;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.3s ease;
+            z-index: 1001;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success { background: #4CAF50; }
+        .toast.error { background: #F44336; }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .side-panel {
+                order: -1;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .toolbar {
+                width: 100%;
+            }
+
+            .tool-btn span:not(.material-icons) {
+                display: none;
+            }
+
+            .pdf-controls {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .zoom-controls {
+                margin-left: 0;
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="../index.html" class="back-btn">
+                <span class="material-icons">arrow_back</span>
+            </a>
+            <h1>กรอกแบบฟอร์ม PDF</h1>
+            <div class="toolbar">
+                <button class="tool-btn" onclick="document.getElementById('loadDataInput').click()" title="โหลดข้อมูล">
+                    <span class="material-icons">folder_open</span>
+                    <span>โหลดข้อมูล</span>
+                </button>
+                <button class="tool-btn" onclick="showSaveModal()" id="saveBtn" style="display:none" title="บันทึกข้อมูล">
+                    <span class="material-icons">save</span>
+                    <span>บันทึก</span>
+                </button>
+                <button class="tool-btn" onclick="document.getElementById('fontInput').click()" id="fontBtn" style="display:none" title="เลือกฟอนต์ไทย">
+                    <span class="material-icons">font_download</span>
+                    <span>เลือกฟอนต์</span>
+                </button>
+                <button class="tool-btn primary" onclick="exportPDF()" id="exportBtn" style="display:none" title="ส่งออก PDF">
+                    <span class="material-icons">picture_as_pdf</span>
+                    <span>ส่งออก PDF</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="pdf-section">
+                <!-- Upload -->
+                <div class="card" id="uploadCard">
+                    <div class="card-title">
+                        <span class="material-icons">upload_file</span>
+                        เลือกไฟล์ PDF
+                    </div>
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                        <span class="material-icons">picture_as_pdf</span>
+                        <p>คลิกหรือลากไฟล์ PDF มาวางที่นี่</p>
+                        <small>รองรับแบบฟอร์ม PDF ทุกประเภท</small>
+                    </div>
+                    <input type="file" id="fileInput" accept=".pdf" onchange="handleFileSelect(event)">
+                    <input type="file" id="loadDataInput" accept=".json" onchange="loadDataFromFile(event)">
+                    <input type="file" id="fontInput" accept=".ttf,.otf,.woff" onchange="loadFontFromFile(event)">
+                </div>
+
+                <!-- PDF Viewer -->
+                <div class="pdf-viewer" id="pdfViewer">
+                    <div class="pdf-controls">
+                        <button class="page-btn" onclick="changePage(-1)" id="prevPage">
+                            <span class="material-icons">chevron_left</span>
+                        </button>
+                        <span class="page-info">หน้า <span id="currentPage">1</span> / <span id="totalPages">1</span></span>
+                        <button class="page-btn" onclick="changePage(1)" id="nextPage">
+                            <span class="material-icons">chevron_right</span>
+                        </button>
+
+                        <div class="zoom-controls">
+                            <button class="zoom-btn" onclick="changeZoom(-0.1)">
+                                <span class="material-icons">remove</span>
+                            </button>
+                            <span class="zoom-value" id="zoomValue">100%</span>
+                            <button class="zoom-btn" onclick="changeZoom(0.1)">
+                                <span class="material-icons">add</span>
+                            </button>
+                            <button class="zoom-btn" onclick="fitToWidth()" title="พอดีหน้าจอ">
+                                <span class="material-icons">fit_screen</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper" id="canvasWrapper">
+                        <div class="canvas-container" id="canvasContainer">
+                            <canvas id="pdfCanvas"></canvas>
+                            <div class="fields-overlay mode-select" id="fieldsOverlay"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <!-- Tool Mode -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="material-icons">construction</span>
+                        เครื่องมือ
+                    </div>
+                    <div class="mode-selector">
+                        <div class="mode-btn active" data-mode="select" onclick="setMode('select')">
+                            <span class="material-icons">pan_tool</span>
+                            <span>เลือก</span>
+                        </div>
+                        <div class="mode-btn" data-mode="text" onclick="setMode('text')">
+                            <span class="material-icons">text_fields</span>
+                            <span>ข้อความ</span>
+                        </div>
+                        <div class="mode-btn" data-mode="checkbox" onclick="setMode('checkbox')">
+                            <span class="material-icons">check_box</span>
+                            <span>เช็คบ็อกซ์</span>
+                        </div>
+                    </div>
+
+                    <div class="hint-box" style="margin-top: 15px;">
+                        <span class="material-icons">lightbulb</span>
+                        <span id="hintText">คลิกที่ PDF เพื่อเพิ่มช่องกรอกข้อความ</span>
+                    </div>
+                </div>
+
+                <!-- Field List -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="material-icons">list</span>
+                        รายการฟิลด์ (<span id="fieldCount">0</span>)
+                    </div>
+                    <div class="field-list" id="fieldList">
+                        <div class="empty-state">
+                            <span class="material-icons">edit_note</span>
+                            <p>ยังไม่มีฟิลด์</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Field Settings -->
+                <div class="card" id="fieldSettingsCard" style="display:none">
+                    <div class="card-title">
+                        <span class="material-icons">settings</span>
+                        ตั้งค่าฟิลด์
+                    </div>
+                    <div class="field-settings">
+                        <div class="setting-row">
+                            <label>ขนาดตัวอักษร (px)</label>
+                            <input type="number" id="fieldFontSize" value="14" min="8" max="72" onchange="updateSelectedField()">
+                        </div>
+                        <div class="setting-row">
+                            <label>ความกว้าง (px)</label>
+                            <input type="number" id="fieldWidth" value="150" min="30" onchange="updateSelectedField()">
+                        </div>
+                        <div class="setting-row">
+                            <label>ความสูง (px)</label>
+                            <input type="number" id="fieldHeight" value="28" min="20" onchange="updateSelectedField()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saved Data -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="material-icons">history</span>
+                        ข้อมูลที่บันทึก
+                    </div>
+                    <div class="saved-list" id="savedList">
+                        <div class="empty-state">
+                            <span class="material-icons">save</span>
+                            <p>ยังไม่มีข้อมูลบันทึก</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Modal -->
+    <div class="modal-overlay" id="saveModal">
+        <div class="modal">
+            <h3>บันทึกข้อมูล</h3>
+            <input type="text" class="modal-input" id="saveNameInput" placeholder="ชื่อไฟล์ (เช่น แบบฟอร์ม_นายสมชาย)">
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeSaveModal()">ยกเลิก</button>
+                <button class="modal-btn confirm" onclick="saveData()">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span class="material-icons">check_circle</span>
+        <span id="toastText">บันทึกสำเร็จ</span>
+    </div>
+
+    <script>
+        // Initialize PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // State
+        let pdfDoc = null;
+        let pdfBytes = null;
+        let currentPageNum = 1;
+        let totalPagesNum = 0;
+        let scale = 1.0;
+        let currentMode = 'select';
+        let fields = [];
+        let selectedField = null;
+        let isDragging = false;
+        let isResizing = false;
+        let dragOffset = { x: 0, y: 0 };
+        let pdfFileName = '';
+
+        // Font for Thai text
+        let thaiFont = null;
+
+        // Hints for each mode
+        const hints = {
+            select: 'คลิกที่ฟิลด์เพื่อเลือก แล้วลากเพื่อย้ายตำแหน่ง',
+            text: 'คลิกที่ PDF เพื่อเพิ่มช่องกรอกข้อความ',
+            checkbox: 'คลิกที่ PDF เพื่อเพิ่มช่องเช็คบ็อกซ์'
+        };
+
+        // File handling
+        const uploadArea = document.getElementById('uploadArea');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                loadPDF(files[0]);
+            }
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) loadPDF(file);
+        }
+
+        async function loadPDF(file) {
+            pdfFileName = file.name;
+            pdfBytes = await file.arrayBuffer();
+
+            const loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice(0) });
+            pdfDoc = await loadingTask.promise;
+            totalPagesNum = pdfDoc.numPages;
+
+            document.getElementById('uploadCard').style.display = 'none';
+            document.getElementById('pdfViewer').classList.add('show');
+            document.getElementById('saveBtn').style.display = 'flex';
+            document.getElementById('exportBtn').style.display = 'flex';
+            document.getElementById('fontBtn').style.display = 'flex';
+            document.getElementById('totalPages').textContent = totalPagesNum;
+
+            // Reset fields for new PDF
+            fields = [];
+            renderFieldList();
+
+            await renderPage(1);
+            fitToWidth();
+        }
+
+        async function renderPage(pageNum) {
+            currentPageNum = pageNum;
+            document.getElementById('currentPage').textContent = pageNum;
+            document.getElementById('prevPage').disabled = pageNum <= 1;
+            document.getElementById('nextPage').disabled = pageNum >= totalPagesNum;
+
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: scale });
+
+            const canvas = document.getElementById('pdfCanvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const overlay = document.getElementById('fieldsOverlay');
+            overlay.style.width = viewport.width + 'px';
+            overlay.style.height = viewport.height + 'px';
+
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+
+            renderFields();
+        }
+
+        function changePage(delta) {
+            const newPage = currentPageNum + delta;
+            if (newPage >= 1 && newPage <= totalPagesNum) {
+                renderPage(newPage);
+            }
+        }
+
+        function changeZoom(delta) {
+            scale = Math.max(0.5, Math.min(3, scale + delta));
+            document.getElementById('zoomValue').textContent = Math.round(scale * 100) + '%';
+            renderPage(currentPageNum);
+        }
+
+        function fitToWidth() {
+            const wrapper = document.getElementById('canvasWrapper');
+            const wrapperWidth = wrapper.clientWidth - 60; // Account for margins
+
+            if (pdfDoc) {
+                pdfDoc.getPage(currentPageNum).then(page => {
+                    const viewport = page.getViewport({ scale: 1 });
+                    scale = wrapperWidth / viewport.width;
+                    document.getElementById('zoomValue').textContent = Math.round(scale * 100) + '%';
+                    renderPage(currentPageNum);
+                });
+            }
+        }
+
+        // Mode handling
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+            document.getElementById('hintText').textContent = hints[mode];
+
+            // Update cursor style
+            const overlay = document.getElementById('fieldsOverlay');
+            overlay.classList.toggle('mode-select', mode === 'select');
+
+            if (mode !== 'select') {
+                deselectField();
+            }
+        }
+
+        // Field handling
+        function setupOverlayEvents() {
+            const overlay = document.getElementById('fieldsOverlay');
+
+            overlay.addEventListener('click', (e) => {
+                // Only handle clicks directly on the overlay, not on child elements
+                if (e.target !== overlay) return;
+
+                const rect = overlay.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                console.log('Click at:', x, y, 'Mode:', currentMode);
+
+                if (currentMode === 'text') {
+                    addTextField(x, y);
+                } else if (currentMode === 'checkbox') {
+                    addCheckboxField(x, y);
+                } else {
+                    deselectField();
+                }
+            });
+        }
+
+        function addTextField(x, y) {
+            const field = {
+                id: Date.now(),
+                type: 'text',
+                page: currentPageNum,
+                x: x,
+                y: y,
+                width: 150,
+                height: 28,
+                fontSize: 14,
+                value: ''
+            };
+            fields.push(field);
+            renderFields();
+            selectField(field.id);
+            renderFieldList();
+            showToast('เพิ่มช่องข้อความแล้ว', 'success');
+        }
+
+        function addCheckboxField(x, y) {
+            const field = {
+                id: Date.now(),
+                type: 'checkbox',
+                page: currentPageNum,
+                x: x,
+                y: y,
+                width: 24,
+                height: 24,
+                checked: false
+            };
+            fields.push(field);
+            renderFields();
+            selectField(field.id);
+            renderFieldList();
+            showToast('เพิ่มเช็คบ็อกซ์แล้ว', 'success');
+        }
+
+        function renderFields() {
+            const overlay = document.getElementById('fieldsOverlay');
+            overlay.innerHTML = '';
+
+            const pageFields = fields.filter(f => f.page === currentPageNum);
+
+            pageFields.forEach(field => {
+                if (field.type === 'text') {
+                    renderTextField(field, overlay);
+                } else if (field.type === 'checkbox') {
+                    renderCheckboxField(field, overlay);
+                }
+            });
+        }
+
+        function renderTextField(field, overlay) {
+            const div = document.createElement('div');
+            div.className = 'text-field' + (selectedField === field.id ? ' selected' : '');
+            div.dataset.id = field.id;
+            div.style.left = field.x + 'px';
+            div.style.top = field.y + 'px';
+            div.style.width = field.width + 'px';
+            div.style.height = field.height + 'px';
+
+            const input = field.height > 40 ? document.createElement('textarea') : document.createElement('input');
+            if (input.tagName === 'INPUT') input.type = 'text';
+            input.value = field.value || '';
+            input.style.fontSize = field.fontSize + 'px';
+            input.placeholder = 'พิมพ์ที่นี่...';
+
+            input.addEventListener('input', (e) => {
+                field.value = e.target.value;
+            });
+
+            input.addEventListener('mousedown', (e) => {
+                selectField(field.id);
+            });
+
+            // Drag handle
+            const dragHandle = document.createElement('div');
+            dragHandle.className = 'drag-handle';
+            dragHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectField(field.id);
+                startDrag(e, field);
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteField(field.id);
+            };
+
+            const handle = document.createElement('div');
+            handle.className = 'field-handle';
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                startResize(e, field);
+            });
+
+            div.appendChild(input);
+            div.appendChild(dragHandle);
+            div.appendChild(deleteBtn);
+            div.appendChild(handle);
+
+            overlay.appendChild(div);
+        }
+
+        function renderCheckboxField(field, overlay) {
+            const div = document.createElement('div');
+            div.className = 'checkbox-field' + (selectedField === field.id ? ' selected' : '') + (field.checked ? ' checked' : '');
+            div.dataset.id = field.id;
+            div.style.left = field.x + 'px';
+            div.style.top = field.y + 'px';
+            div.style.width = field.width + 'px';
+            div.style.height = field.height + 'px';
+
+            const box = document.createElement('div');
+            box.className = 'checkbox-box';
+
+            // Track if we're dragging to prevent toggle on drag
+            let hasMoved = false;
+            let startX, startY;
+
+            box.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                hasMoved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                selectField(field.id);
+                startDrag(e, field);
+            });
+
+            box.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Only toggle if we didn't drag
+                const moved = Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5;
+                if (!moved) {
+                    field.checked = !field.checked;
+                    renderFields();
+                }
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = '×';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteField(field.id);
+            };
+
+            div.appendChild(box);
+            div.appendChild(deleteBtn);
+
+            overlay.appendChild(div);
+        }
+
+        function selectField(id) {
+            selectedField = id;
+            renderFields();
+            renderFieldList();
+
+            const field = fields.find(f => f.id === id);
+            if (field && field.type === 'text') {
+                document.getElementById('fieldSettingsCard').style.display = 'block';
+                document.getElementById('fieldFontSize').value = field.fontSize;
+                document.getElementById('fieldWidth').value = field.width;
+                document.getElementById('fieldHeight').value = field.height;
+            } else {
+                document.getElementById('fieldSettingsCard').style.display = 'none';
+            }
+        }
+
+        function deselectField() {
+            selectedField = null;
+            renderFields();
+            renderFieldList();
+            document.getElementById('fieldSettingsCard').style.display = 'none';
+        }
+
+        function deleteField(id) {
+            fields = fields.filter(f => f.id !== id);
+            if (selectedField === id) {
+                deselectField();
+            }
+            renderFields();
+            renderFieldList();
+            showToast('ลบฟิลด์แล้ว', 'success');
+        }
+
+        function updateSelectedField() {
+            if (!selectedField) return;
+
+            const field = fields.find(f => f.id === selectedField);
+            if (field && field.type === 'text') {
+                field.fontSize = parseInt(document.getElementById('fieldFontSize').value) || 14;
+                field.width = parseInt(document.getElementById('fieldWidth').value) || 150;
+                field.height = parseInt(document.getElementById('fieldHeight').value) || 28;
+                renderFields();
+            }
+        }
+
+        function renderFieldList() {
+            const list = document.getElementById('fieldList');
+            document.getElementById('fieldCount').textContent = fields.length;
+
+            if (fields.length === 0) {
+                list.innerHTML = '<div class="empty-state"><span class="material-icons">edit_note</span><p>ยังไม่มีฟิลด์</p></div>';
+                return;
+            }
+
+            list.innerHTML = fields.map(f => {
+                const icon = f.type === 'text' ? 'text_fields' : 'check_box';
+                const name = f.type === 'text' ? (f.value || 'ช่องข้อความ') : 'เช็คบ็อกซ์';
+                const isActive = selectedField === f.id;
+                return `
+                    <div class="field-item ${isActive ? 'active' : ''}" onclick="goToField(${f.id})">
+                        <span class="material-icons">${icon}</span>
+                        <div class="field-item-info">
+                            <div class="field-name">${escapeHtml(name.substring(0, 20))}</div>
+                            <div class="field-pos">หน้า ${f.page} | x:${Math.round(f.x)}, y:${Math.round(f.y)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function goToField(id) {
+            const field = fields.find(f => f.id === id);
+            if (field && field.page !== currentPageNum) {
+                renderPage(field.page).then(() => {
+                    selectField(id);
+                });
+            } else {
+                selectField(id);
+            }
+        }
+
+        // Drag and resize
+        let dragField = null;
+
+        function startDrag(e, field) {
+            isDragging = true;
+            dragField = field;
+
+            // Calculate offset from field position
+            const overlay = document.getElementById('fieldsOverlay');
+            const overlayRect = overlay.getBoundingClientRect();
+            dragOffset.x = e.clientX - overlayRect.left - field.x;
+            dragOffset.y = e.clientY - overlayRect.top - field.y;
+
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        function doDrag(e) {
+            if (!isDragging || !dragField) return;
+
+            const overlay = document.getElementById('fieldsOverlay');
+            const rect = overlay.getBoundingClientRect();
+
+            let newX = e.clientX - rect.left - dragOffset.x;
+            let newY = e.clientY - rect.top - dragOffset.y;
+
+            // Bounds checking
+            newX = Math.max(0, Math.min(newX, overlay.clientWidth - dragField.width));
+            newY = Math.max(0, Math.min(newY, overlay.clientHeight - dragField.height));
+
+            dragField.x = newX;
+            dragField.y = newY;
+
+            // Update position directly without full re-render
+            const fieldEl = document.querySelector(`[data-id="${dragField.id}"]`);
+            if (fieldEl) {
+                fieldEl.style.left = newX + 'px';
+                fieldEl.style.top = newY + 'px';
+            }
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            dragField = null;
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            renderFieldList();
+        }
+
+        function startResize(e, field) {
+            isResizing = true;
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startWidth = field.width;
+            const startHeight = field.height;
+
+            function doResize(me) {
+                if (!isResizing) return;
+                field.width = Math.max(50, startWidth + (me.clientX - startX));
+                field.height = Math.max(20, startHeight + (me.clientY - startY));
+                renderFields();
+
+                // Update settings panel
+                document.getElementById('fieldWidth').value = field.width;
+                document.getElementById('fieldHeight').value = field.height;
+            }
+
+            function stopResize() {
+                isResizing = false;
+                document.removeEventListener('mousemove', doResize);
+                document.removeEventListener('mouseup', stopResize);
+            }
+
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+        }
+
+        // Save/Load
+        function showSaveModal() {
+            document.getElementById('saveModal').classList.add('show');
+            document.getElementById('saveNameInput').value = pdfFileName.replace('.pdf', '');
+            document.getElementById('saveNameInput').focus();
+        }
+
+        function closeSaveModal() {
+            document.getElementById('saveModal').classList.remove('show');
+        }
+
+        function saveData() {
+            const name = document.getElementById('saveNameInput').value.trim() || 'แบบฟอร์ม';
+
+            const data = {
+                name: name,
+                pdfFileName: pdfFileName,
+                date: new Date().toISOString(),
+                fields: fields
+            };
+
+            // Download as JSON file
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name + '_formdata.json';
+            a.click();
+            URL.revokeObjectURL(url);
+
+            // Also save to localStorage
+            const savedList = JSON.parse(localStorage.getItem('pdf_form_saves') || '[]');
+            savedList.unshift(data);
+            if (savedList.length > 10) savedList.pop(); // Keep only 10 saves
+            localStorage.setItem('pdf_form_saves', JSON.stringify(savedList));
+
+            closeSaveModal();
+            renderSavedList();
+            showToast('บันทึกข้อมูลแล้ว', 'success');
+        }
+
+        function loadDataFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.fields) {
+                        fields = data.fields;
+                        renderFields();
+                        renderFieldList();
+                        showToast(`โหลดข้อมูล "${data.name}" แล้ว (${fields.length} ฟิลด์)`, 'success');
+                    }
+                } catch (err) {
+                    showToast('ไฟล์ไม่ถูกต้อง', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function loadSavedData(index) {
+            const savedList = JSON.parse(localStorage.getItem('pdf_form_saves') || '[]');
+            if (savedList[index]) {
+                fields = savedList[index].fields;
+                renderFields();
+                renderFieldList();
+                showToast(`โหลดข้อมูล "${savedList[index].name}" แล้ว`, 'success');
+            }
+        }
+
+        function deleteSavedData(index, event) {
+            event.stopPropagation();
+            const savedList = JSON.parse(localStorage.getItem('pdf_form_saves') || '[]');
+            savedList.splice(index, 1);
+            localStorage.setItem('pdf_form_saves', JSON.stringify(savedList));
+            renderSavedList();
+            showToast('ลบข้อมูลแล้ว', 'success');
+        }
+
+        function renderSavedList() {
+            const list = document.getElementById('savedList');
+            const savedList = JSON.parse(localStorage.getItem('pdf_form_saves') || '[]');
+
+            if (savedList.length === 0) {
+                list.innerHTML = '<div class="empty-state"><span class="material-icons">save</span><p>ยังไม่มีข้อมูลบันทึก</p></div>';
+                return;
+            }
+
+            list.innerHTML = savedList.map((item, i) => {
+                const date = new Date(item.date).toLocaleDateString('th-TH', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                return `
+                    <div class="saved-item" onclick="loadSavedData(${i})">
+                        <span class="material-icons">description</span>
+                        <div class="saved-item-info">
+                            <div class="save-name">${escapeHtml(item.name)}</div>
+                            <div class="save-date">${date} | ${item.fields.length} ฟิลด์</div>
+                        </div>
+                        <button class="delete-save" onclick="deleteSavedData(${i}, event)">
+                            <span class="material-icons" style="font-size:16px">delete</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Thai font URLs to try (in order) - local first, then CDN
+        const THAI_FONT_URLS = [
+            '../fonts/THSarabunNew.ttf',
+            'https://cdn.jsdelivr.net/gh/ArabasaDev/Fonts@main/THSarabunNew.ttf',
+            'https://fonts.gstatic.com/s/sarabun/v15/DtVjJx26TKEr37c9WAFDtg.ttf'
+        ];
+
+        // Cache for loaded font
+        let cachedFontBytes = null;
+
+        // Load font from user-selected file
+        function loadFontFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                cachedFontBytes = e.target.result;
+                showToast(`โหลดฟอนต์ "${file.name}" สำเร็จ!`, 'success');
+                // Update button to show font is loaded
+                const fontBtn = document.getElementById('fontBtn');
+                fontBtn.style.background = '#4CAF50';
+                fontBtn.querySelector('span:last-child').textContent = file.name.substring(0, 10);
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+
+        async function loadThaiFont() {
+            if (cachedFontBytes) return cachedFontBytes;
+
+            for (const url of THAI_FONT_URLS) {
+                try {
+                    console.log('Trying font URL:', url);
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type') || '';
+                        // Check if it's a valid font file (not HTML error page)
+                        if (contentType.includes('html')) {
+                            console.warn('Got HTML instead of font from:', url);
+                            continue;
+                        }
+                        cachedFontBytes = await response.arrayBuffer();
+                        // Verify it's a valid font (TTF starts with 0x00010000 or 'true')
+                        const view = new DataView(cachedFontBytes);
+                        const signature = view.getUint32(0);
+                        if (signature === 0x00010000 || signature === 0x74727565) {
+                            console.log('Font loaded successfully from:', url);
+                            return cachedFontBytes;
+                        } else {
+                            console.warn('Invalid font signature from:', url);
+                            cachedFontBytes = null;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load font from:', url, e);
+                }
+            }
+
+            return null;
+        }
+
+        // Export PDF
+        async function exportPDF() {
+            if (!pdfBytes || fields.length === 0) {
+                showToast('กรุณาเพิ่มฟิลด์ก่อนส่งออก', 'error');
+                return;
+            }
+
+            showToast('กำลังโหลดฟอนต์และสร้าง PDF...', 'success');
+
+            try {
+                const { PDFDocument, rgb } = PDFLib;
+                const existingPdfDoc = await PDFDocument.load(pdfBytes);
+
+                // Register fontkit for custom fonts
+                existingPdfDoc.registerFontkit(fontkit);
+
+                // Load Thai font
+                const fontBytes = await loadThaiFont();
+                if (!fontBytes) {
+                    showToast('กรุณากดปุ่ม "เลือกฟอนต์" แล้วเลือกไฟล์ฟอนต์ไทย (.ttf)', 'error');
+                    alert('ไม่สามารถโหลดฟอนต์อัตโนมัติได้\n\nวิธีแก้ไข:\n1. ดาวน์โหลดฟอนต์ THSarabunNew.ttf จาก:\n   https://www.f0nt.com/release/th-sarabun-new/\n\n2. กดปุ่ม "เลือกฟอนต์" แล้วเลือกไฟล์ .ttf ที่ดาวน์โหลดมา\n\n3. กดส่งออก PDF อีกครั้ง');
+                    return;
+                }
+
+                const font = await existingPdfDoc.embedFont(fontBytes);
+                const pages = existingPdfDoc.getPages();
+
+                // Get canvas dimensions for scale calculation
+                const canvas = document.getElementById('pdfCanvas');
+
+                for (const field of fields) {
+                    if (field.page > pages.length) continue;
+
+                    const page = pages[field.page - 1];
+                    const { width: pageWidth, height: pageHeight } = page.getSize();
+
+                    // Calculate scale between canvas and actual PDF
+                    const canvasScale = canvas.width / pageWidth;
+
+                    // Convert coordinates (canvas to PDF)
+                    const pdfX = field.x / canvasScale;
+                    const pdfY = pageHeight - (field.y / canvasScale) - (field.height / canvasScale);
+
+                    if (field.type === 'text' && field.value) {
+                        const fontSize = field.fontSize / canvasScale;
+
+                        page.drawText(field.value, {
+                            x: pdfX + 4,
+                            y: pdfY + 4,
+                            size: fontSize,
+                            font: font,
+                            color: rgb(0, 0, 0)
+                        });
+                    } else if (field.type === 'checkbox' && field.checked) {
+                        const size = field.width / canvasScale;
+
+                        // Draw checkmark using / and \ instead of ✓
+                        page.drawText('/', {
+                            x: pdfX + 2,
+                            y: pdfY + 2,
+                            size: size * 0.9,
+                            font: font,
+                            color: rgb(0, 0.4, 0)
+                        });
+                    }
+                }
+
+                const modifiedPdfBytes = await existingPdfDoc.save();
+
+                // Download
+                const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = pdfFileName.replace('.pdf', '_filled.pdf');
+                a.click();
+                URL.revokeObjectURL(url);
+
+                showToast('ส่งออก PDF สำเร็จ!', 'success');
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
+
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = type === 'success' ? 'check_circle' : 'error';
+            toast.innerHTML = `<span class="material-icons">${icon}</span><span>${message}</span>`;
+            toast.className = 'toast ' + type + ' show';
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSavedList();
+            setupOverlayEvents();
+            setMode('select'); // Set initial mode
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' && selectedField) {
+                deleteField(selectedField);
+            }
+            if (e.key === 'Escape') {
+                deselectField();
+            }
+        });
+    </script>
+</body>
+</html>
