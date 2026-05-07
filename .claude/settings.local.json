@@ -24,7 +24,23 @@
       "Bash(python3 -c \"import pyautogui; print\\(''pyautogui OK''\\)\")",
       "Bash(powershell.exe -Command \"pip list 2>&1 | Select-String -Pattern 'Pillow|pyinstaller|mss|tkinter'\" 2>/dev/null)",
       "Bash(powershell.exe -Command \"cd 'D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort'; python -m PyInstaller --onefile --noconsole --name ScreenshotTool --distpath . --clean screenshot.pyw 2>&1\")",
-      "Bash(powershell.exe -Command \"cd 'D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort'; python -m PyInstaller --onefile --noconsole --name ScreenshotTool --distpath . --clean screenshot.pyw 2>&1 | Select-String 'ERROR|completed successfully|Build complete'\")"
+      "Bash(powershell.exe -Command \"cd 'D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort'; python -m PyInstaller --onefile --noconsole --name ScreenshotTool --distpath . --clean screenshot.pyw 2>&1 | Select-String 'ERROR|completed successfully|Build complete'\")",
+      "Bash(pip show:*)",
+      "Bash(pyinstaller --onefile --noconsole --name ScreenshotTool screenshot.pyw)",
+      "Read(//mnt/c/**)",
+      "Read(//mnt/c/Users/**)",
+      "Bash(cmd.exe /c \"where python\")",
+      "Bash(cmd.exe /c 'C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m pip show pyinstaller')",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort && C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m PyInstaller --onefile --noconsole --name ScreenshotTool screenshot.pyw\" 2>&1)",
+      "Bash(python3:*)",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort && C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m PyInstaller --onefile --noconsole --name SSSnap screenshot.pyw\")",
+      "Bash(cmd.exe /c 'C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m pip show customtkinter')",
+      "Bash(cmd.exe /c \"C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m pip install customtkinter\" 2>&1)",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort && C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m PyInstaller --onefile --noconsole --name SSSnap --hidden-import customtkinter screenshot.pyw\")",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort && C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m PyInstaller --onefile --noconsole --name SoftSnap --hidden-import customtkinter screenshot.pyw\")",
+      "Bash(ls /mnt/d/Anat-Chadsiri/MyTools/Myshort/*.exe)",
+      "Bash(ls:*)",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort && C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m PyInstaller --onefile --noconsole --name SoftSnap --hidden-import customtkinter softsnap.pyw\")"
     ]
   }
 }
