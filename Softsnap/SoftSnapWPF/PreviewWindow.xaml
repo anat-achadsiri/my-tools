@@ -1,0 +1,41 @@
+<Window x:Class="SoftSnapWPF.PreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Preview" WindowStartupLocation="CenterOwner"
+        Topmost="True"
+        x:Name="PreviewWin">
+
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding CloseCommand, ElementName=PreviewWin}"/>
+    </Window.InputBindings>
+
+    <Grid Focusable="True" FocusManager.IsFocusScope="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top bar -->
+        <DockPanel Grid.Row="0" Margin="12,8,12,4">
+            <TextBlock x:Name="FileNameLabel" Text="" Foreground="Gray"
+                       FontFamily="Segoe UI" FontSize="11"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </DockPanel>
+
+        <!-- Image -->
+        <Border Grid.Row="1" Margin="10,4" ClipToBounds="True">
+            <Image x:Name="PreviewImage" Stretch="Uniform"/>
+        </Border>
+
+        <!-- Bottom bar -->
+        <DockPanel Grid.Row="2" Margin="12,4,12,8">
+            <Button DockPanel.Dock="Right" Content="Copy Path" Width="100" Height="30"
+                    Background="#007AFF" Style="{StaticResource RoundButton}" FontSize="11"
+                    Click="CopyPathBtn_Click"/>
+            <TextBlock x:Name="FullPathLabel" Text="" FontFamily="Consolas" FontSize="9"
+                       Foreground="#30D158" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"/>
+        </DockPanel>
+    </Grid>
+</Window>

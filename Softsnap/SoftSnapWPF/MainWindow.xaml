@@ -1,0 +1,234 @@
+<Window x:Class="SoftSnapWPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SoftSnap" Width="900" Height="860" MinWidth="600" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="#0C0A1A"
+        x:Name="MainWin"
+        KeyDown="Window_KeyDown">
+
+    <Window.Resources>
+        <!-- Flat toolbar button (Windows Explorer style) -->
+        <Style x:Key="ToolbarButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#1A1A2E"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18000000"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#28000000"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Separator line -->
+        <Style x:Key="ToolbarSep" TargetType="Border">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Background" Value="#30000000"/>
+            <Setter Property="Margin" Value="4,6"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Title bar -->
+            <RowDefinition Height="Auto"/>  <!-- Toolbar -->
+            <RowDefinition Height="Auto"/>  <!-- Address bar -->
+            <RowDefinition Height="*"/>     <!-- Gallery -->
+            <RowDefinition Height="28"/>    <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ══ Title Bar ══ -->
+        <Border x:Name="TitleBar" Grid.Row="0" Background="#F3F3F3" Padding="12,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="StatusLabel" Text="&#x2713; Ready"
+                               Foreground="#107C10" FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button x:Name="ThemeBtn" Content="&#x263D;"
+                            Style="{StaticResource ToolbarButton}"
+                            FontSize="16" Padding="6,4" Click="ThemeBtn_Click"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="&#x1F4F7;" FontSize="18" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="SoftSnap" FontFamily="Segoe UI" FontSize="16" FontWeight="SemiBold"
+                               Foreground="#1A1A2E" VerticalAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ══ Toolbar (flat, like Explorer) ══ -->
+        <Border x:Name="ToolbarBorder" Grid.Row="1" Background="#F9F9F9" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Margin="8,2">
+                <Button Style="{StaticResource ToolbarButton}" Click="CaptureFullBtn_Click" ToolTip="Capture Full Screen (F5)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4F7;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Capture" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="CaptureRegionBtn_Click" ToolTip="Capture Region">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2702;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Region" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Border Style="{StaticResource ToolbarSep}"/>
+                <Button Style="{StaticResource ToolbarButton}" Click="PasteBtn_Click" ToolTip="Paste from Clipboard">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4CB;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Paste" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="CopySelBtn_Click" ToolTip="Copy Selected Paths">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4C4;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Copy" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="DeleteSelBtn_Click" ToolTip="Delete Selected">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F5D1;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Delete" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Border Style="{StaticResource ToolbarSep}"/>
+                <Button Style="{StaticResource ToolbarButton}" Click="AddAlbumBtn_Click" ToolTip="New Album">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2795;" FontSize="12" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="New" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="BrowseAlbumBtn_Click" ToolTip="Browse Folder as Album">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4C1;" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Browse" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="RemoveAlbumBtn_Click" ToolTip="Remove Album">
+                    <TextBlock Text="&#x2715;" FontSize="12" Foreground="#C42B1C"/>
+                </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="OpenFolderBtn_Click" ToolTip="Open in Explorer">
+                    <TextBlock Text="&#x1F4C2;" FontSize="14"/>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- ══ Address Bar (album tabs + path) ══ -->
+        <Border x:Name="AddressBar" Grid.Row="2" Background="#FFFFFF" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
+                Padding="6,3">
+            <DockPanel>
+                <!-- Right: count + path -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,4,0">
+                    <TextBlock x:Name="PathLabel" Text="" Foreground="#999"
+                               FontFamily="Segoe UI" FontSize="10"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    <TextBlock x:Name="CountLabel" Text="0"
+                               Foreground="#666" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </StackPanel>
+
+                <!-- Album pill tabs + overflow dropdown -->
+                <StackPanel Orientation="Horizontal">
+                    <ItemsControl x:Name="AlbumTabs">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
+                    <!-- Overflow dropdown for many albums -->
+                    <Border x:Name="AlbumOverflowBtn" Visibility="Collapsed"
+                            CornerRadius="14" Padding="10,5" Margin="0,0,4,0"
+                            Cursor="Hand" Background="#EBEBF0"
+                            MouseLeftButtonDown="AlbumOverflowBtn_Click">
+                        <TextBlock x:Name="AlbumOverflowText" Text="&#x25BE; +0"
+                                   FontFamily="Segoe UI" FontSize="11" Foreground="#555"/>
+                    </Border>
+
+                    <!-- Popup for overflow albums -->
+                    <Popup x:Name="AlbumPopup" StaysOpen="True" Placement="Bottom"
+                           PlacementTarget="{Binding ElementName=AlbumOverflowBtn}"
+                           AllowsTransparency="True" PopupAnimation="Fade">
+                        <Border x:Name="AlbumPopupBorder" Background="White" CornerRadius="8"
+                                BorderBrush="#E0E0E0" BorderThickness="1"
+                                Padding="4" MinWidth="180">
+                            <Border.Effect>
+                                <DropShadowEffect ShadowDepth="2" BlurRadius="10" Opacity="0.2"/>
+                            </Border.Effect>
+                            <ItemsControl x:Name="AlbumPopupItems">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+
+                <!-- Hidden ComboBox to keep existing code working -->
+                <ComboBox x:Name="AlbumCombo" Visibility="Collapsed"
+                          SelectionChanged="AlbumCombo_SelectionChanged"/>
+            </DockPanel>
+        </Border>
+
+        <!-- ══ Gallery ══ -->
+        <Border x:Name="GalleryBorder" Grid.Row="3" Background="#FFFFFF">
+            <ScrollViewer x:Name="GalleryScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          PreviewMouseLeftButtonDown="GalleryScroll_PreviewMouseDown"
+                          PreviewMouseMove="GalleryScroll_PreviewMouseMove"
+                          PreviewMouseLeftButtonUp="GalleryScroll_PreviewMouseUp">
+                <Grid>
+                    <ItemsControl x:Name="GalleryItems">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel ItemWidth="176" Margin="8,8,8,0"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <!-- Rubber-band selection overlay -->
+                    <Canvas x:Name="SelectionCanvas" IsHitTestVisible="False">
+                        <Border x:Name="SelectionRect" Visibility="Collapsed"
+                                Background="#330078D7" BorderBrush="#0078D7"
+                                BorderThickness="1"/>
+                    </Canvas>
+                </Grid>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ══ Status Bar ══ -->
+        <Border x:Name="BottomBar" Grid.Row="4" Background="#F3F3F3" BorderBrush="#E5E5E5" BorderThickness="0,1,0,0">
+            <DockPanel Margin="12,0">
+                <TextBlock x:Name="SelInfoLabel" DockPanel.Dock="Right" Text="" Foreground="#666"
+                           FontFamily="Segoe UI" FontSize="10"
+                           VerticalAlignment="Center"/>
+                <CheckBox x:Name="SelectAllCheck" Content="เลือกทั้งหมด"
+                          Foreground="#333" FontFamily="Segoe UI" FontSize="11"
+                          VerticalContentAlignment="Center"
+                          Click="SelectAllCheck_Click"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>softsuite.ico</ApplicationIcon>
+    <AssemblyTitle>SoftSnap</AssemblyTitle>
+    <Product>SoftSnap</Product>
+    <Description>SoftSnap — Screenshot capture &amp; manager by SoftSuite</Description>
+    <RootNamespace>SoftSnapWPF</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>
