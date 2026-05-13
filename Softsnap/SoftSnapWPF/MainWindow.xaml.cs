@@ -554,21 +554,62 @@ namespace SoftSnapWPF
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            var imgBorder = new Border
+            // Copy path button (overlay, hidden by default)
+            var copyBtn = new Border
+            {
+                Width = 28,
+                Height = 28,
+                CornerRadius = new CornerRadius(6),
+                Background = new SolidColorBrush(Color.FromArgb(200, 0, 120, 215)),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 4, 4, 0),
+                Cursor = Cursors.Hand,
+                Visibility = Visibility.Collapsed,
+                ToolTip = "Copy Path",
+                Child = new TextBlock
+                {
+                    Text = "\U0001F4CB",
+                    FontSize = 14,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            var fpCopy = filepath;
+            copyBtn.MouseLeftButtonDown += (_, e) =>
+            {
+                Clipboard.SetText(fpCopy);
+                SetStatus("คัดลอกแล้ว: " + Path.GetFileName(fpCopy));
+                e.Handled = true;
+            };
+
+            var thumbGrid = new Grid
             {
                 Width = ThumbSize,
                 Height = ThumbSize,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+
+            var imgBorder = new Border
+            {
                 BorderBrush = new SolidColorBrush(_isDark
                     ? Color.FromRgb(60, 60, 80)
                     : Color.FromRgb(200, 200, 200)),
                 BorderThickness = new Thickness(1),
                 Background = Brushes.White,
                 Padding = new Thickness(4),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 6),
                 Child = img
             };
-            stack.Children.Add(imgBorder);
+
+            thumbGrid.Children.Add(imgBorder);
+            thumbGrid.Children.Add(copyBtn);
+
+            // Show/hide copy button on hover
+            thumbGrid.MouseEnter += (_, _) => copyBtn.Visibility = Visibility.Visible;
+            thumbGrid.MouseLeave += (_, _) => copyBtn.Visibility = Visibility.Collapsed;
+
+            stack.Children.Add(thumbGrid);
 
             // Filename (centered, wrapping like Explorer)
             stack.Children.Add(new TextBlock
@@ -940,14 +981,14 @@ namespace SoftSnapWPF
         private void ApplyTheme()
         {
             var borderBrush = new SolidColorBrush(_isDark ? Color.FromRgb(50, 50, 60) : Color.FromRgb(229, 229, 229));
+            var fg = new SolidColorBrush(_isDark ? Color.FromRgb(230, 230, 230) : Color.FromRgb(26, 26, 46));
+            var fgSub = new SolidColorBrush(_isDark ? Color.FromRgb(160, 160, 160) : Color.FromRgb(85, 85, 85));
 
             if (_isDark)
             {
                 var bg1 = new SolidColorBrush(Color.FromRgb(32, 32, 32));
                 var bg2 = new SolidColorBrush(Color.FromRgb(39, 39, 39));
                 var bg3 = new SolidColorBrush(Color.FromRgb(25, 25, 25));
-                var fg = new SolidColorBrush(Color.FromRgb(230, 230, 230));
-                var fgSub = new SolidColorBrush(Color.FromRgb(160, 160, 160));
 
                 MainWin.Background = bg3;
                 TitleBar.Background = bg1;
@@ -958,9 +999,7 @@ namespace SoftSnapWPF
                 GalleryBorder.Background = bg3;
                 BottomBar.Background = bg1;
                 BottomBar.BorderBrush = borderBrush;
-                SelectAllCheck.Foreground = fg;
-                PathLabel.Foreground = fgSub;
-                ThemeBtn.Content = "\u263D";
+                ThemeBtn.Content = "\u2600";
             }
             else
             {
@@ -973,12 +1012,54 @@ namespace SoftSnapWPF
                 GalleryBorder.Background = Brushes.White;
                 BottomBar.Background = new SolidColorBrush(Color.FromRgb(243, 243, 243));
                 BottomBar.BorderBrush = borderBrush;
-                SelectAllCheck.Foreground = new SolidColorBrush(Color.FromRgb(30, 30, 30));
-                PathLabel.Foreground = new SolidColorBrush(Color.FromRgb(85, 85, 85));
-                ThemeBtn.Content = "\u2600";
+                ThemeBtn.Content = "\u263D";
+            }
+
+            // Update all toolbar buttons foreground
+            ApplyForegroundToToolbar(ToolbarBorder, fg);
+
+            // Title bar text
+            foreach (var child in LogicalTreeHelper.GetChildren(TitleBar))
+            {
+                if (child is DockPanel dp)
+                    ApplyForegroundToToolbar(dp, fg);
+            }
+
+            // Status bar
+            SelectAllCheck.Foreground = fg;
+            PathLabel.Foreground = fgSub;
+            CountLabel.Foreground = fgSub;
+            SelInfoLabel.Foreground = fgSub;
+
+            // Separators
+            foreach (var child in LogicalTreeHelper.GetChildren(ToolbarBorder))
+            {
+                if (child is StackPanel sp)
+                {
+                    foreach (var item in sp.Children)
+                    {
+                        if (item is Border b && b.Width == 1) // separator
+                            b.Background = new SolidColorBrush(_isDark
+                                ? Color.FromArgb(48, 255, 255, 255)
+                                : Color.FromArgb(48, 0, 0, 0));
+                    }
+                }
             }
 
             RefreshAlbumTabs();
+        }
+
+        private void ApplyForegroundToToolbar(DependencyObject parent, SolidColorBrush fg)
+        {
+            foreach (var child in LogicalTreeHelper.GetChildren(parent))
+            {
+                if (child is Button btn)
+                    btn.Foreground = fg;
+                if (child is TextBlock tb && tb.Name != "StatusLabel")
+                    tb.Foreground = fg;
+                if (child is DependencyObject d)
+                    ApplyForegroundToToolbar(d, fg);
+            }
         }
 
         // ── Status ──────────────────────────────────────────────────
