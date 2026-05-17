@@ -25,6 +25,7 @@ namespace SoftSnapWPF
         private Dictionary<string, string> _albums = new();
         private readonly HashSet<string> _selected = new();
         private bool _isDark = true;
+        private bool _sortNewestFirst = true; // true = ใหม่→เก่า, false = เก่า→ใหม่
         private const int ThumbSize = 140;
         private const int Columns = 3;
         private int _galleryGeneration = 0; // cancel stale loads
@@ -39,6 +40,17 @@ namespace SoftSnapWPF
             InitializeComponent();
 
             _appDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            // Set window icon
+            var icoPath = Path.Combine(_appDir, "SSnap_Enterprise_Logo.ico");
+            if (File.Exists(icoPath))
+            {
+                using var icon = new System.Drawing.Icon(icoPath);
+                Icon = Imaging.CreateBitmapSourceFromHIcon(
+                    icon.Handle,
+                    Int32Rect.Empty,
+                    BitmapSizeOptions.FromEmptyOptions());
+            }
             _configFile = Path.Combine(_appDir, "softsnap_config.json");
 
             LoadConfig();
@@ -399,9 +411,11 @@ namespace SoftSnapWPF
             if (!Directory.Exists(_saveDir)) return;
 
             var exts = new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" };
-            var files = Directory.GetFiles(_saveDir)
-                .Where(f => exts.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .OrderByDescending(f => File.GetLastWriteTime(f))
+            var allFiles = Directory.GetFiles(_saveDir)
+                .Where(f => exts.Contains(Path.GetExtension(f).ToLowerInvariant()));
+            var files = (_sortNewestFirst
+                ? allFiles.OrderByDescending(f => File.GetLastWriteTime(f))
+                : allFiles.OrderBy(f => File.GetLastWriteTime(f)))
                 .ToList();
 
             // Clean up invalid selections
@@ -453,6 +467,10 @@ namespace SoftSnapWPF
             // Load thumbnails async in background
             var gen = _galleryGeneration;
             _ = LoadThumbnailsAsync(cardEntries, gen);
+
+            // Auto-scroll to bottom when sorting old→new
+            if (!_sortNewestFirst)
+                Dispatcher.InvokeAsync(() => GalleryScroll.ScrollToEnd(), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private async Task LoadThumbnailsAsync(List<(Border card, Image img, string filepath)> entries, int generation)
@@ -506,6 +524,10 @@ namespace SoftSnapWPF
 
         private (Border card, Image img) CreateCard(string filepath)
         {
+            // Label files: show as full-width banner
+            if (IsLabelFile(filepath))
+                return CreateLabelCard(filepath);
+
             var isSelected = _selected.Contains(filepath);
             var fname = Path.GetFileName(filepath);
 
@@ -630,7 +652,96 @@ namespace SoftSnapWPF
             return (card, img);
         }
 
-        // ── Selection ───────────────────────────────────────────────
+        private (Border card, Image img) CreateLabelCard(string filepath)
+        {
+            var isSelected = _selected.Contains(filepath);
+            var selectedBorder = new SolidColorBrush(_isDark
+                ? Color.FromArgb(120, 99, 102, 241)
+                : Color.FromArgb(100, 0, 120, 215));
+
+            var labelBg = new SolidColorBrush(_isDark
+                ? Color.FromRgb(35, 30, 70)
+                : Color.FromRgb(230, 230, 255));
+            var accentColor = new SolidColorBrush(Color.FromRgb(99, 102, 241));
+
+            // Extract label text from filename: _label_20260517_120000.png → parse from image
+            // We show the thumbnail image which already has the text rendered
+            var img = new Image
+            {
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var card = new Border
+            {
+                Background = isSelected ? new SolidColorBrush(Color.FromArgb(60, 99, 102, 241)) : labelBg,
+                CornerRadius = new CornerRadius(6),
+                BorderBrush = isSelected ? selectedBorder : accentColor,
+                BorderThickness = new Thickness(2),
+                Padding = new Thickness(4),
+                Margin = new Thickness(2, 6, 2, 6),
+                Width = 170,
+                Cursor = Cursors.Hand
+            };
+
+            var fpClick = filepath;
+            card.MouseLeftButtonDown += (_, e) =>
+            {
+                if (e.ClickCount == 2)
+                    ShowPreview(fpClick);
+                else
+                    ToggleSelect(fpClick);
+                e.Handled = true;
+            };
+
+            var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+
+            // Label icon indicator
+            var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 2, 0, 4) };
+            headerPanel.Children.Add(new TextBlock
+            {
+                Text = "\U0001F3F7\uFE0F",
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 4, 0)
+            });
+            headerPanel.Children.Add(new TextBlock
+            {
+                Text = "ป้ายกำกับ",
+                Foreground = accentColor,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            stack.Children.Add(headerPanel);
+
+            // Thumbnail showing the rendered label image
+            var thumbGrid = new Grid
+            {
+                Width = ThumbSize + 20,
+                Height = 50,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            var imgBorder = new Border
+            {
+                BorderBrush = accentColor,
+                BorderThickness = new Thickness(1),
+                Background = new SolidColorBrush(Color.FromRgb(25, 25, 50)),
+                Padding = new Thickness(2),
+                Child = img
+            };
+            thumbGrid.Children.Add(imgBorder);
+            stack.Children.Add(thumbGrid);
+
+            card.Child = stack;
+            _cardToFile[card] = filepath;
+            return (card, img);
+        }
+
+        // ── Selection ────────────────────────────���──────────────────
         private void ToggleSelect(string filepath)
         {
             if (_selected.Contains(filepath))
@@ -755,9 +866,15 @@ namespace SoftSnapWPF
         private void CopySelBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_selected.Count == 0) { SetStatus("ไม่ได้เลือกรูป", false); return; }
-            var paths = string.Join("\n", _selected.OrderBy(s => s));
+
+            // Copy in the same order as current gallery display
+            var sorted = _sortNewestFirst
+                ? _selected.OrderByDescending(f => File.GetLastWriteTime(f)).ToList()
+                : _selected.OrderBy(f => File.GetLastWriteTime(f)).ToList();
+            var paths = string.Join("\n", sorted);
             Clipboard.SetText(paths);
-            SetStatus($"คัดลอก {_selected.Count} path");
+            var order = _sortNewestFirst ? "ใหม่→เก่า" : "เก่า→ใหม่";
+            SetStatus($"คัดลอก {_selected.Count} path ({order})");
         }
 
         private void DeleteSelBtn_Click(object sender, RoutedEventArgs e)
@@ -947,6 +1064,75 @@ namespace SoftSnapWPF
             encoder.Save(fs);
 
             return fp;
+        }
+
+        // ── Sort Toggle ─────────────────────────────────────────────
+        private void SortToggleBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _sortNewestFirst = !_sortNewestFirst;
+            UpdateSortButton();
+            LoadGallery();
+
+            // Auto-scroll to bottom when old→new (latest at bottom)
+            if (!_sortNewestFirst)
+                Dispatcher.InvokeAsync(() => GalleryScroll.ScrollToEnd(), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private void UpdateSortButton()
+        {
+            if (SortToggleBtn != null)
+                SortToggleBtn.Content = _sortNewestFirst ? "ใหม่→เก่า" : "เก่า→ใหม่";
+        }
+
+        // ── Label (Group Separator) ────────────────────────────────
+        private void AddLabelBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new InputDialog("ป้ายกำกับกลุ่ม", "พิมพ์ข้อความป้ายกำกับ:") { Owner = this };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Answer)) return;
+
+            var text = dlg.Answer.Trim();
+            var fp = CreateLabelImage(text);
+            LoadGallery();
+            SetStatus($"เพิ่มป้าย: {text}");
+        }
+
+        private string CreateLabelImage(string text)
+        {
+            int width = 900, height = 60;
+            using var bmp = new System.Drawing.Bitmap(width, height);
+            using var g = System.Drawing.Graphics.FromImage(bmp);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            // Dark gradient background
+            using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                new System.Drawing.Rectangle(0, 0, width, height),
+                System.Drawing.Color.FromArgb(30, 30, 60),
+                System.Drawing.Color.FromArgb(50, 50, 100),
+                System.Drawing.Drawing2D.LinearGradientMode.Horizontal);
+            g.FillRectangle(brush, 0, 0, width, height);
+
+            // Accent line on left
+            using var accentBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(99, 102, 241));
+            g.FillRectangle(accentBrush, 0, 0, 6, height);
+
+            // Text
+            using var font = new System.Drawing.Font("Segoe UI", 20, System.Drawing.FontStyle.Bold);
+            using var textBrush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
+            var sf = new System.Drawing.StringFormat { LineAlignment = System.Drawing.StringAlignment.Center };
+            g.DrawString(text, font, textBrush, new System.Drawing.RectangleF(20, 0, width - 40, height), sf);
+
+            // Save
+            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            if (!Directory.Exists(_saveDir)) Directory.CreateDirectory(_saveDir);
+            var fp = Path.Combine(_saveDir, $"_label_{ts}.png");
+            bmp.Save(fp, System.Drawing.Imaging.ImageFormat.Png);
+            return fp;
+        }
+
+        private static bool IsLabelFile(string filepath)
+        {
+            return Path.GetFileName(filepath).StartsWith("_label_", StringComparison.OrdinalIgnoreCase);
         }
 
         // ── Preview ─────────────────────────────────────────────────

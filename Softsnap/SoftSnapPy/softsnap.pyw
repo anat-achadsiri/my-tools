@@ -66,6 +66,11 @@ class SoftSnap(ctk.CTk):
         self.geometry("860x860")
         self.minsize(560, 520)
 
+        # Set window icon
+        icon_path = os.path.join(APP_DIR, "SSnap_Enterprise_Logo.ico")
+        if os.path.exists(icon_path):
+            self.iconbitmap(icon_path)
+
         self.cfg = load_config()
         self.save_dir = self.cfg.get("save_dir", DEFAULT_SAVE_DIR)
         theme = self.cfg.get("theme", "dark")
