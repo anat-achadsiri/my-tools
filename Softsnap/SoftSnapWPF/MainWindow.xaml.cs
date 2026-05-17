@@ -914,6 +914,8 @@ namespace SoftSnapWPF
                 var fp = SaveImage(screen);
                 WindowState = WindowState.Normal;
                 Activate();
+                _selected.Clear();
+                _selected.Add(fp);
                 LoadGallery();
                 Clipboard.SetText(fp);
                 SetStatus("บันทึก + คัดลอก path แล้ว");
@@ -970,6 +972,8 @@ namespace SoftSnapWPF
                     var fp = SaveImage(cropped);
                     WindowState = WindowState.Normal;
                     Activate();
+                    _selected.Clear();
+                    _selected.Add(fp);
                     LoadGallery();
                     Clipboard.SetText(fp);
                     SetStatus("บันทึก + คัดลอก path แล้ว");
@@ -1002,6 +1006,8 @@ namespace SoftSnapWPF
                 {
                     var img = Clipboard.GetImage();
                     var fp = SaveImage(img);
+                    _selected.Clear();
+                    _selected.Add(fp);
                     LoadGallery();
                     Clipboard.SetText(fp);
                     SetStatus("วางรูปจาก Clipboard + คัดลอก path");

@@ -43,7 +43,9 @@
       "Bash(cmd.exe /c \"cd /d D:\\\\Anat-Chadsiri\\\\MyTools\\\\Myshort && C:\\\\Users\\\\Asus\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe -m PyInstaller --onefile --noconsole --name SoftSnap --hidden-import customtkinter softsnap.pyw\")",
       "Bash(git mv:*)",
       "Bash(dotnet --version)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(grep -r tag /mnt/d/Anat-Chadsiri/MyTools/Apps/*.html)",
+      "Bash(grep:*)"
     ]
   }
 }
