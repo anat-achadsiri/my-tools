@@ -67,7 +67,7 @@ class SoftSnap(ctk.CTk):
         self.minsize(560, 520)
 
         # Set window icon
-        icon_path = os.path.join(APP_DIR, "SSnap_Enterprise_Logo.ico")
+        icon_path = os.path.join(APP_DIR, "softsnap_logo.ico")
         if os.path.exists(icon_path):
             self.iconbitmap(icon_path)
 

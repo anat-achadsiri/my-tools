@@ -42,7 +42,7 @@ namespace SoftSnapWPF
             _appDir = AppDomain.CurrentDomain.BaseDirectory;
 
             // Set window icon
-            var icoPath = Path.Combine(_appDir, "SSnap_Enterprise_Logo.ico");
+            var icoPath = Path.Combine(_appDir, "softsnap_logo.ico");
             if (File.Exists(icoPath))
             {
                 using var icon = new System.Drawing.Icon(icoPath);

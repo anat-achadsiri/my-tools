@@ -45,7 +45,9 @@
       "Bash(dotnet --version)",
       "Bash(dotnet build:*)",
       "Bash(grep -r tag /mnt/d/Anat-Chadsiri/MyTools/Apps/*.html)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cp \"/mnt/d/Anat-Chadsiri/MyTools/Softsnap/softsnap_logo.ico\" \"/mnt/d/Anat-Chadsiri/MyTools/Softsnap/SoftSnapWPF/softsnap_logo.ico\")",
+      "Bash(cp \"/mnt/d/Anat-Chadsiri/MyTools/Softsnap/softsnap_logo.ico\" \"/mnt/d/Anat-Chadsiri/MyTools/Softsnap/SoftSnapPy/softsnap_logo.ico\")"
     ]
   }
 }
