@@ -41,15 +41,11 @@ namespace SoftSnapWPF
 
             _appDir = AppDomain.CurrentDomain.BaseDirectory;
 
-            // Set window icon
-            var icoPath = Path.Combine(_appDir, "softsnap_logo.ico");
+            // Set window icon (BitmapFrame reads all .ico frames — WPF picks the best size per context)
+            var icoPath = Path.Combine(_appDir, "softsnap_logo_v4.ico");
             if (File.Exists(icoPath))
             {
-                using var icon = new System.Drawing.Icon(icoPath);
-                Icon = Imaging.CreateBitmapSourceFromHIcon(
-                    icon.Handle,
-                    Int32Rect.Empty,
-                    BitmapSizeOptions.FromEmptyOptions());
+                Icon = BitmapFrame.Create(new Uri(icoPath, UriKind.Absolute));
             }
             _configFile = Path.Combine(_appDir, "softsnap_config.json");
 

@@ -5,7 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon>softsnap_logo.ico</ApplicationIcon>
+    <ApplicationIcon>softsnap_logo_v4.ico</ApplicationIcon>
     <AssemblyTitle>SoftSnap</AssemblyTitle>
     <Product>SoftSnap</Product>
     <Description>SoftSnap — Screenshot capture &amp; manager by SoftSuite</Description>
@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="softsnap_logo.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="softsnap_logo_v4.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
