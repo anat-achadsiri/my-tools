@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -923,12 +924,22 @@ namespace SoftSnapWPF
             }
         }
 
+        // ── Win32 API for real screen size (physical pixels) ────
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+
+        private const int SM_XVIRTUALSCREEN = 76;
+        private const int SM_YVIRTUALSCREEN = 77;
+        private const int SM_CXVIRTUALSCREEN = 78;
+        private const int SM_CYVIRTUALSCREEN = 79;
+
         private static BitmapSource? CaptureScreen()
         {
-            var screenLeft = (int)SystemParameters.VirtualScreenLeft;
-            var screenTop = (int)SystemParameters.VirtualScreenTop;
-            var screenWidth = (int)SystemParameters.VirtualScreenWidth;
-            var screenHeight = (int)SystemParameters.VirtualScreenHeight;
+            // Use Win32 GetSystemMetrics — always returns physical pixels
+            var screenLeft = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            var screenTop = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            var screenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            var screenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 
             using var bmp = new System.Drawing.Bitmap(screenWidth, screenHeight);
             using var g = System.Drawing.Graphics.FromImage(bmp);
@@ -946,7 +957,7 @@ namespace SoftSnapWPF
             }
         }
 
-        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        [DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
 
         // ── Capture Region ──────────────────────────────────────────
