@@ -93,6 +93,12 @@
                         <TextBlock Text="Region" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="CaptureWindowBtn_Click" ToolTip="Capture Window (F6)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x1FA9F;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock Text="Window" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
                 <Button Style="{StaticResource ToolbarButton}" Click="AddLabelBtn_Click" ToolTip="เพิ่มป้ายกำกับกลุ่ม">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#x1F3F7;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>

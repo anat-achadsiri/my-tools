@@ -960,6 +960,44 @@ namespace SoftSnapWPF
         [DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);
 
+        // ── Capture Window ──────────────────────────────────────────
+        private void CaptureWindowBtn_Click(object sender, RoutedEventArgs e)
+        {
+            CaptureWindow();
+        }
+
+        private void CaptureWindow()
+        {
+            Directory.CreateDirectory(_saveDir);
+
+            try
+            {
+                var ownerHwnd = new WindowInteropHelper(this).Handle;
+                var picker = new WindowPickerWindow(ownerHwnd) { Owner = this };
+
+                if (picker.ShowDialog() == true)
+                {
+                    var captured = picker.CaptureSelectedWindow();
+                    if (captured == null)
+                    {
+                        SetStatus("Capture failed — หน้าต่างอาจถูกปิดแล้ว", false);
+                        return;
+                    }
+
+                    var fp = SaveImage(captured);
+                    _selected.Clear();
+                    _selected.Add(fp);
+                    LoadGallery();
+                    Clipboard.SetText(fp);
+                    SetStatus($"บันทึก + คัดลอก path: {picker.SelectedTitle}");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Error: {ex.Message}", false);
+            }
+        }
+
         // ── Capture Region ──────────────────────────────────────────
         private async void CaptureRegionBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -1277,6 +1315,9 @@ namespace SoftSnapWPF
             {
                 case Key.F5:
                     await CaptureFullScreen();
+                    break;
+                case Key.F6:
+                    CaptureWindow();
                     break;
                 case Key.Delete:
                     DeleteSelBtn_Click(sender, e);
