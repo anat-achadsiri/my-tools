@@ -143,6 +143,9 @@
                 <Button Style="{StaticResource ToolbarButton}" Click="OpenFolderBtn_Click" ToolTip="Open in Explorer">
                     <TextBlock Text="&#x1F4C2;" FontSize="14"/>
                 </Button>
+                <Button Style="{StaticResource ToolbarButton}" Click="RefreshBtn_Click" ToolTip="Refresh (Ctrl+R)">
+                    <TextBlock Text="&#x1F504;" FontSize="14"/>
+                </Button>
             </StackPanel>
         </Border>
 

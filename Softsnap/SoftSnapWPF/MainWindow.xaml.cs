@@ -24,6 +24,7 @@ namespace SoftSnapWPF
         private string _saveDir = "";
         private string _currentAlbum = "Screenshots";
         private Dictionary<string, string> _albums = new();
+        private List<string> _albumOrder = new(); // MRU order (most recent first)
         private readonly HashSet<string> _selected = new();
         private bool _isDark = true;
         private bool _sortNewestFirst = true; // true = ใหม่→เก่า, false = เก่า→ใหม่
@@ -90,6 +91,14 @@ namespace SoftSnapWPF
             _isDark = GetCfgString("theme", "dark") == "dark";
             _currentAlbum = GetCfgString("current_album", "Screenshots");
 
+            // Load MRU album order
+            if (_cfg.TryGetValue("album_order", out var orderVal) && orderVal is JsonElement oe && oe.ValueKind == JsonValueKind.Array)
+            {
+                _albumOrder = new List<string>();
+                foreach (var item in oe.EnumerateArray())
+                    if (item.GetString() is string s) _albumOrder.Add(s);
+            }
+
             ApplyTheme();
         }
 
@@ -107,6 +116,7 @@ namespace SoftSnapWPF
             _cfg["theme"] = _isDark ? "dark" : "light";
             _cfg["current_album"] = _currentAlbum;
             _cfg["albums"] = _albums;
+            _cfg["album_order"] = _albumOrder;
 
             var json = JsonSerializer.Serialize(_cfg, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_configFile, json);
@@ -126,6 +136,18 @@ namespace SoftSnapWPF
             {
                 _albums["Screenshots"] = _saveDir;
                 SaveConfig();
+            }
+
+            // Sync album order: remove deleted albums, add new ones at end
+            _albumOrder.RemoveAll(n => !_albums.ContainsKey(n));
+            foreach (var name in _albums.Keys)
+                if (!_albumOrder.Contains(name)) _albumOrder.Add(name);
+
+            // Ensure current album is at top of MRU
+            if (!string.IsNullOrEmpty(_currentAlbum) && _albums.ContainsKey(_currentAlbum))
+            {
+                _albumOrder.Remove(_currentAlbum);
+                _albumOrder.Insert(0, _currentAlbum);
             }
 
             if (_albums.TryGetValue(_currentAlbum, out var dir))
@@ -153,17 +175,11 @@ namespace SoftSnapWPF
         {
             AlbumTabs.Items.Clear();
 
-            var albumNames = _albums.Keys.ToList();
+            // Use MRU order for tabs (most recently used first)
+            var albumNames = _albumOrder.Where(n => _albums.ContainsKey(n)).ToList();
 
-            // Always show active tab first, then others
-            var visible = new List<string>();
-            if (albumNames.Contains(_currentAlbum))
-                visible.Add(_currentAlbum);
-            foreach (var n in albumNames)
-                if (n != _currentAlbum && visible.Count < MaxVisibleTabs)
-                    visible.Add(n);
-
-            var overflow = albumNames.Where(n => !visible.Contains(n)).ToList();
+            var visible = albumNames.Take(MaxVisibleTabs).ToList();
+            var overflow = albumNames.Skip(MaxVisibleTabs).ToList();
 
             foreach (var name in visible)
                 AlbumTabs.Items.Add(CreateAlbumPill(name));
@@ -180,7 +196,7 @@ namespace SoftSnapWPF
                     ? Color.FromRgb(180, 180, 190)
                     : Color.FromRgb(85, 85, 85));
 
-                // Build popup items
+                // Build popup items (all albums in MRU order)
                 AlbumPopupItems.Items.Clear();
                 foreach (var name in albumNames)
                 {
@@ -296,12 +312,19 @@ namespace SoftSnapWPF
             AlbumPopup.IsOpen = !AlbumPopup.IsOpen;
         }
 
+        private void BumpAlbumOrder(string name)
+        {
+            _albumOrder.Remove(name);
+            _albumOrder.Insert(0, name);
+        }
+
         private void AlbumCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (AlbumCombo.SelectedItem is string name && _albums.TryGetValue(name, out var dir))
             {
                 _currentAlbum = name;
                 _saveDir = dir;
+                BumpAlbumOrder(name);
                 Directory.CreateDirectory(_saveDir);
                 SaveConfig();
                 PathLabel.Text = _saveDir;
@@ -335,6 +358,7 @@ namespace SoftSnapWPF
             _albums[name] = albumPath;
             _currentAlbum = name;
             _saveDir = albumPath;
+            BumpAlbumOrder(name);
             SaveConfig();
 
             _selected.Clear();
@@ -361,6 +385,7 @@ namespace SoftSnapWPF
             _albums[name] = dlg.SelectedPath;
             _currentAlbum = name;
             _saveDir = dlg.SelectedPath;
+            BumpAlbumOrder(name);
             SaveConfig();
 
             _selected.Clear();
@@ -381,7 +406,8 @@ namespace SoftSnapWPF
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
             _albums.Remove(name);
-            var first = _albums.Keys.First();
+            _albumOrder.Remove(name);
+            var first = _albumOrder.FirstOrDefault() ?? _albums.Keys.First();
             _currentAlbum = first;
             _saveDir = _albums[first];
             SaveConfig();
@@ -396,6 +422,13 @@ namespace SoftSnapWPF
         {
             Directory.CreateDirectory(_saveDir);
             Process.Start("explorer.exe", _saveDir);
+        }
+
+        private void RefreshBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _selected.Clear();
+            LoadGallery();
+            SetStatus("Refreshed");
         }
 
         // ── Gallery ─────────────────────────────────────────────────
@@ -1324,6 +1357,9 @@ namespace SoftSnapWPF
                     break;
                 case Key.V when Keyboard.Modifiers == ModifierKeys.Control:
                     PasteClipboard();
+                    break;
+                case Key.R when Keyboard.Modifiers == ModifierKeys.Control:
+                    RefreshBtn_Click(sender, e);
                     break;
                 case Key.Escape:
                     Close();
