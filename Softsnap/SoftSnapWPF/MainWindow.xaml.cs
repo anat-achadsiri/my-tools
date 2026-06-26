@@ -525,7 +525,8 @@ namespace SoftSnapWPF
                             var bi = new BitmapImage();
                             bi.BeginInit();
                             bi.UriSource = new Uri(filepath);
-                            bi.DecodePixelWidth = ThumbSize;
+                            // ป้ายกำกับถอดรหัสที่ความละเอียดสูงขึ้น เพื่อให้ตัวอักษรคมชัด (แสดงกว้างกว่า + อาจสูง)
+                            bi.DecodePixelWidth = IsLabelFile(filepath) ? (ThumbSize + 20) * 2 : ThumbSize;
                             bi.CacheOption = BitmapCacheOption.OnLoad;
                             bi.EndInit();
                             bi.Freeze(); // allow cross-thread access
@@ -685,13 +686,13 @@ namespace SoftSnapWPF
         private (Border card, Image img) CreateLabelCard(string filepath)
         {
             var isSelected = _selected.Contains(filepath);
+            var selectedBg = new SolidColorBrush(_isDark
+                ? Color.FromArgb(60, 99, 102, 241)
+                : Color.FromArgb(40, 0, 120, 215));
             var selectedBorder = new SolidColorBrush(_isDark
                 ? Color.FromArgb(120, 99, 102, 241)
                 : Color.FromArgb(100, 0, 120, 215));
 
-            var labelBg = new SolidColorBrush(_isDark
-                ? Color.FromRgb(35, 30, 70)
-                : Color.FromRgb(230, 230, 255));
             var accentColor = new SolidColorBrush(Color.FromRgb(99, 102, 241));
 
             // Extract label text from filename: _label_20260517_120000.png → parse from image
@@ -699,15 +700,19 @@ namespace SoftSnapWPF
             var img = new Image
             {
                 Stretch = Stretch.Uniform,
+                // ล็อกแค่ความกว้าง ปล่อยให้ความสูงเลื่อนตามสัดส่วนจริงของรูปป้าย
+                // ป้ายข้อความยาว (รูปสูง) จะได้ thumbnail สูงตาม แสดงตัวอักษรใหญ่สุดเท่าที่แสดงได้
+                Width = ThumbSize + 20,
+                MaxHeight = 200,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
             var card = new Border
             {
-                Background = isSelected ? new SolidColorBrush(Color.FromArgb(60, 99, 102, 241)) : labelBg,
+                Background = isSelected ? selectedBg : Brushes.Transparent,
                 CornerRadius = new CornerRadius(6),
-                BorderBrush = isSelected ? selectedBorder : accentColor,
+                BorderBrush = isSelected ? selectedBorder : Brushes.Transparent,
                 BorderThickness = new Thickness(2),
                 Padding = new Thickness(4),
                 Margin = new Thickness(2, 6, 2, 6),
@@ -732,39 +737,33 @@ namespace SoftSnapWPF
             headerPanel.Children.Add(new TextBlock
             {
                 Text = "\U0001F3F7\uFE0F",
-                FontSize = 12,
+                FontSize = 18,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 4, 0)
+                Margin = new Thickness(0, 0, 6, 0)
             });
             headerPanel.Children.Add(new TextBlock
             {
                 Text = "ป้ายกำกับ",
                 Foreground = accentColor,
                 FontFamily = new FontFamily("Segoe UI"),
-                FontSize = 10,
+                FontSize = 16,
                 FontWeight = FontWeights.Bold,
                 VerticalAlignment = VerticalAlignment.Center
             });
             stack.Children.Add(headerPanel);
 
-            // Thumbnail showing the rendered label image
-            var thumbGrid = new Grid
-            {
-                Width = ThumbSize + 20,
-                Height = 50,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 4)
-            };
+            // Thumbnail showing the rendered label image — สูงตามสัดส่วนรูปอัตโนมัติ
             var imgBorder = new Border
             {
                 BorderBrush = accentColor,
                 BorderThickness = new Thickness(1),
                 Background = new SolidColorBrush(Color.FromRgb(25, 25, 50)),
                 Padding = new Thickness(2),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 4),
                 Child = img
             };
-            thumbGrid.Children.Add(imgBorder);
-            stack.Children.Add(thumbGrid);
+            stack.Children.Add(imgBorder);
 
             card.Child = stack;
             _cardToFile[card] = filepath;
@@ -1182,41 +1181,75 @@ namespace SoftSnapWPF
 
         private string CreateLabelImage(string text)
         {
-            int width = 900, height = 60;
+            // สัดส่วนใกล้เคียง thumbnail ของ screenshot เพื่อให้ตัวอักษรใหญ่ อ่านง่ายจาก thumblist
+            int width = 1000, height = 620;
             using var bmp = new System.Drawing.Bitmap(width, height);
             using var g = System.Drawing.Graphics.FromImage(bmp);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
             // Dark gradient background
             using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
                 new System.Drawing.Rectangle(0, 0, width, height),
                 System.Drawing.Color.FromArgb(30, 30, 60),
                 System.Drawing.Color.FromArgb(50, 50, 100),
-                System.Drawing.Drawing2D.LinearGradientMode.Horizontal);
+                System.Drawing.Drawing2D.LinearGradientMode.ForwardDiagonal);
             g.FillRectangle(brush, 0, 0, width, height);
 
-            // Accent line on left
+            // Accent bar on left
             using var accentBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(99, 102, 241));
-            g.FillRectangle(accentBrush, 0, 0, 6, height);
+            g.FillRectangle(accentBrush, 0, 0, 18, height);
 
-            // Text
-            using var font = new System.Drawing.Font("Segoe UI", 20, System.Drawing.FontStyle.Bold);
+            // Text area (with padding) — จัดกึ่งกลางทั้งแนวตั้ง/นอน และตัดบรรทัดอัตโนมัติ
+            int padX = 50, padY = 40;
+            var textRect = new System.Drawing.RectangleF(padX, padY, width - padX * 2, height - padY * 2);
+            using var sf = new System.Drawing.StringFormat
+            {
+                Alignment = System.Drawing.StringAlignment.Center,
+                LineAlignment = System.Drawing.StringAlignment.Center,
+                Trimming = System.Drawing.StringTrimming.Word
+            };
+
+            // หาขนาดฟอนต์ใหญ่ที่สุดที่ยังพอดีในกรอบ (auto-fit)
+            float fontSize = FitFontSize(g, text, "Segoe UI", textRect.Size, sf, 200f, 28f);
+            using var font = new System.Drawing.Font("Segoe UI", fontSize, System.Drawing.FontStyle.Bold);
+
+            // เงาตัวอักษรเล็กน้อยให้อ่านชัด
+            using var shadowBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(120, 0, 0, 0));
+            var shadowRect = textRect; shadowRect.Offset(2, 3);
+            g.DrawString(text, font, shadowBrush, shadowRect, sf);
+
             using var textBrush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
-            var sf = new System.Drawing.StringFormat { LineAlignment = System.Drawing.StringAlignment.Center };
-            g.DrawString(text, font, textBrush, new System.Drawing.RectangleF(20, 0, width - 40, height), sf);
+            g.DrawString(text, font, textBrush, textRect, sf);
 
             // Save
             var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             if (!Directory.Exists(_saveDir)) Directory.CreateDirectory(_saveDir);
-            var fp = Path.Combine(_saveDir, $"_label_{ts}.png");
+            var fp = Path.Combine(_saveDir, $"screenshot_{ts}_label.png");
             bmp.Save(fp, System.Drawing.Imaging.ImageFormat.Png);
             return fp;
         }
 
+        // เลือกขนาดฟอนต์ใหญ่สุดที่ข้อความยังพอดีในกรอบ (binary-ish step down)
+        private static float FitFontSize(System.Drawing.Graphics g, string text, string family,
+            System.Drawing.SizeF bounds, System.Drawing.StringFormat sf, float maxSize, float minSize)
+        {
+            for (float size = maxSize; size > minSize; size -= 2f)
+            {
+                using var f = new System.Drawing.Font(family, size, System.Drawing.FontStyle.Bold);
+                var measured = g.MeasureString(text, f, (int)bounds.Width, sf);
+                if (measured.Height <= bounds.Height && measured.Width <= bounds.Width)
+                    return size;
+            }
+            return minSize;
+        }
+
         private static bool IsLabelFile(string filepath)
         {
-            return Path.GetFileName(filepath).StartsWith("_label_", StringComparison.OrdinalIgnoreCase);
+            var name = Path.GetFileName(filepath);
+            // ใหม่: screenshot_<ts>_label.png  |  เก่า: _label_<ts>.png (รองรับไว้กันไฟล์เดิมพัง)
+            return name.EndsWith("_label.png", StringComparison.OrdinalIgnoreCase)
+                || name.StartsWith("_label_", StringComparison.OrdinalIgnoreCase);
         }
 
         // ── Preview ─────────────────────────────────────────────────
