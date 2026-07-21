@@ -42,6 +42,8 @@ namespace SoftSnapWPF
         private string? _activeGroup;                                   // โฟลเดอร์กลุ่มที่กำลังบันทึกลง (null = ราก Album)
         private Dictionary<string, string> _activeGroups = new();       // album name -> active group dir
         private readonly HashSet<string> _collapsedGroups = new();      // โฟลเดอร์กลุ่มที่ถูกยุบ
+        private readonly HashSet<string> _hiddenGroups = new();         // โฟลเดอร์กลุ่มที่ถูกซ่อน (ไม่ลบ folder จริง)
+        private bool _showHiddenGroups = false;                         // แสดงกลุ่มที่ซ่อนชั่วคราวหรือไม่
         private readonly HashSet<string> _migratedAlbums = new();       // ราก Album ที่ migrate แล้ว
         private readonly Dictionary<string, Border> _groupHeaders = new();     // group dir -> header card
         private readonly Dictionary<string, TextBlock> _groupBadges = new();   // group dir -> active badge
@@ -111,6 +113,7 @@ namespace SoftSnapWPF
             // Load grouping state
             _activeGroups = ReadStringDict("active_groups");
             foreach (var p in ReadStringArray("collapsed_groups")) _collapsedGroups.Add(p);
+            foreach (var p in ReadStringArray("hidden_groups")) _hiddenGroups.Add(p);
             foreach (var p in ReadStringArray("migrated_albums")) _migratedAlbums.Add(p);
 
             ApplyTheme();
@@ -151,6 +154,7 @@ namespace SoftSnapWPF
             _cfg["album_order"] = _albumOrder;
             _cfg["active_groups"] = _activeGroups;
             _cfg["collapsed_groups"] = _collapsedGroups.ToList();
+            _cfg["hidden_groups"] = _hiddenGroups.ToList();
             _cfg["migrated_albums"] = _migratedAlbums.ToList();
 
             var json = JsonSerializer.Serialize(_cfg, new JsonSerializerOptions { WriteIndented = true });
@@ -576,12 +580,22 @@ namespace SoftSnapWPF
             // รูปที่ยังไม่จัดกลุ่ม (อยู่ในรากของ Album)
             var ungrouped = SortFiles(Directory.GetFiles(_saveDir).Where(IsImage));
 
+            // ล้างรายการกลุ่มที่ซ่อนซึ่ง folder ถูกลบไปแล้ว
+            _hiddenGroups.RemoveWhere(d => !Directory.Exists(d));
+
             // โฟลเดอร์กลุ่ม (grp_*) เรียงตามชื่อ = เรียงตามเวลาสร้าง
-            var groupDirs = Directory.GetDirectories(_saveDir)
+            var allGroupDirs = Directory.GetDirectories(_saveDir)
                 .Where(d => Path.GetFileName(d).StartsWith("grp_", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(d => Path.GetFileName(d), StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            if (_sortNewestFirst) groupDirs.Reverse();
+            if (_sortNewestFirst) allGroupDirs.Reverse();
+
+            // กลุ่มที่ถูกซ่อน (คง folder จริงไว้) — ตัดออกจากการแสดงผล เว้นแต่กดแสดงชั่วคราว
+            int hiddenCount = allGroupDirs.Count(d => _hiddenGroups.Contains(d));
+            var groupDirs = _showHiddenGroups
+                ? allGroupDirs
+                : allGroupDirs.Where(d => !_hiddenGroups.Contains(d)).ToList();
+            UpdateHiddenToggle(hiddenCount);
 
             // validate active group
             if (!string.IsNullOrEmpty(_activeGroup) && !Directory.Exists(_activeGroup))
@@ -604,7 +618,7 @@ namespace SoftSnapWPF
             _selected.IntersectWith(valid);
 
             var parentGrid = (Grid)GalleryItems.Parent;
-            if (totalImages == 0 && groupDirs.Count == 0)
+            if (totalImages == 0 && allGroupDirs.Count == 0)
             {
                 GalleryItems.Visibility = Visibility.Collapsed;
                 var empty = new TextBlock
@@ -947,6 +961,7 @@ namespace SoftSnapWPF
             var labelPath = Path.Combine(groupDir, "_label.png");
             bool isActive = groupDir == _activeGroup;
             bool collapsed = _collapsedGroups.Contains(groupDir);
+            bool hidden = _hiddenGroups.Contains(groupDir);
             var accentBrush = new SolidColorBrush(Color.FromRgb(99, 102, 241));
 
             var card = new Border
@@ -958,13 +973,14 @@ namespace SoftSnapWPF
                 Padding = new Thickness(4),
                 Margin = new Thickness(2, 6, 2, 6),
                 Width = 170,
+                Opacity = hidden ? 0.5 : 1.0,
                 Cursor = Cursors.Hand,
                 ToolTip = "คลิกเพื่อบันทึกรูปใหม่ลงกลุ่มนี้ • ดับเบิลคลิกเพื่อดูป้าย"
             };
 
             var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
-            // แถวบน: [▾ ยุบ/ขยาย] [🏷️ ป้ายกำกับ (n)] [✕ ลบกลุ่ม]
+            // แถวบน: [▾ ยุบ/ขยาย] [🏷️ ป้ายกำกับ (n)] [🙈 ซ่อน]
             var top = new Grid();
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1009,19 +1025,23 @@ namespace SoftSnapWPF
             Grid.SetColumn(titlePanel, 1);
             top.Children.Add(titlePanel);
 
-            var del = new TextBlock
+            // ปุ่มซ่อน/ยกเลิกซ่อน — คง folder จริงไว้เสมอ
+            var hideBtn = new TextBlock
             {
-                Text = "✕",
+                Text = hidden ? "\U0001F441" : "\U0001F648",   // 👁 = แสดงอีกครั้ง, 🙈 = ซ่อน
                 FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(196, 43, 28)),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(4, 0, 2, 0),
                 Cursor = Cursors.Hand,
-                ToolTip = "ลบกลุ่มนี้ (พร้อมรูปในกลุ่ม)"
+                ToolTip = hidden ? "ยกเลิกการซ่อนกลุ่มนี้" : "ซ่อนกลุ่มนี้ (ไม่ลบ folder จริง)"
             };
-            del.MouseLeftButtonDown += (_, e) => { e.Handled = true; DeleteGroup(groupDir); };
-            Grid.SetColumn(del, 2);
-            top.Children.Add(del);
+            hideBtn.MouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true;
+                if (hidden) UnhideGroup(groupDir); else HideGroup(groupDir);
+            };
+            Grid.SetColumn(hideBtn, 2);
+            top.Children.Add(hideBtn);
 
             stack.Children.Add(top);
 
@@ -1117,38 +1137,46 @@ namespace SoftSnapWPF
             }
         }
 
-        private void DeleteGroup(string groupDir)
+        // ── ซ่อน/ยกเลิกซ่อนกลุ่ม (ไม่ลบ folder จริง) ─────────────────
+        private void HideGroup(string groupDir)
         {
-            int imgs = 0;
-            try
+            _hiddenGroups.Add(groupDir);
+            if (_activeGroup == groupDir)
             {
-                imgs = Directory.GetFiles(groupDir).Count(f => IsImage(f) && !IsLabelFile(f));
+                _activeGroup = null;
+                _activeGroups.Remove(_currentAlbum);
             }
-            catch { }
-
-            if (MessageBox.Show($"ลบกลุ่มนี้พร้อมรูป {imgs} ใบ?\n(ลบไฟล์จริงในโฟลเดอร์กลุ่ม)", "ยืนยันลบกลุ่ม",
-                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-
-            try
-            {
-                if (_activeGroup == groupDir)
-                {
-                    _activeGroup = null;
-                    _activeGroups.Remove(_currentAlbum);
-                }
-                _collapsedGroups.Remove(groupDir);
-                Directory.Delete(groupDir, true);
-                SaveConfig();
-            }
-            catch (Exception ex)
-            {
-                SetStatus($"ลบกลุ่มไม่สำเร็จ: {ex.Message}", false);
-                return;
-            }
-
+            SaveConfig();
             _selected.Clear();
             LoadGallery();
-            SetStatus("ลบกลุ่มแล้ว");
+            SetStatus("ซ่อนกลุ่มแล้ว (folder จริงยังอยู่)");
+        }
+
+        private void UnhideGroup(string groupDir)
+        {
+            _hiddenGroups.Remove(groupDir);
+            SaveConfig();
+            LoadGallery();
+            SetStatus("ยกเลิกการซ่อนกลุ่มแล้ว");
+        }
+
+        private void UpdateHiddenToggle(int hiddenCount)
+        {
+            if (HiddenToggleBtn == null) return;
+            if (hiddenCount == 0)
+            {
+                _showHiddenGroups = false;
+                HiddenToggleBtn.Visibility = Visibility.Collapsed;
+                return;
+            }
+            HiddenToggleBtn.Visibility = Visibility.Visible;
+            HiddenToggleBtn.Content = _showHiddenGroups ? "ซ่อนอีกครั้ง" : $"กลุ่มที่ซ่อน ({hiddenCount})";
+        }
+
+        private void HiddenToggleBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _showHiddenGroups = !_showHiddenGroups;
+            LoadGallery();
         }
 
         // ── Selection ────────────────────────────���──────────────────

@@ -171,6 +171,10 @@
                     <Button x:Name="SortToggleBtn" Content="ใหม่→เก่า"
                             Style="{StaticResource ToolbarButton}" Click="SortToggleBtn_Click"
                             FontSize="10" Padding="6,2" Margin="8,0,0,0" ToolTip="สลับลำดับการแสดงผล"/>
+                    <Button x:Name="HiddenToggleBtn" Content="กลุ่มที่ซ่อน"
+                            Style="{StaticResource ToolbarButton}" Click="HiddenToggleBtn_Click"
+                            FontSize="10" Padding="6,2" Margin="6,0,0,0" Visibility="Collapsed"
+                            ToolTip="แสดง/ซ่อน กลุ่มที่ถูกซ่อนไว้"/>
                 </StackPanel>
 
                 <!-- Album pill tabs + overflow dropdown -->
