@@ -202,17 +202,35 @@
                            AllowsTransparency="True" PopupAnimation="Fade">
                         <Border x:Name="AlbumPopupBorder" Background="White" CornerRadius="8"
                                 BorderBrush="#E0E0E0" BorderThickness="1"
-                                Padding="4" MinWidth="180">
+                                Padding="4" MinWidth="230">
                             <Border.Effect>
                                 <DropShadowEffect ShadowDepth="2" BlurRadius="10" Opacity="0.2"/>
                             </Border.Effect>
-                            <ItemsControl x:Name="AlbumPopupItems">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
+                            <StackPanel>
+                                <!-- Search box (type to filter albums) -->
+                                <Border x:Name="AlbumSearchBorder" CornerRadius="6" BorderThickness="1"
+                                        BorderBrush="#D5D5D5" Background="#FFFFFF"
+                                        Margin="2,2,2,4" Padding="7,4">
+                                    <DockPanel>
+                                        <TextBlock x:Name="AlbumSearchIcon" Text="&#x1F50D;" FontSize="11"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0" Opacity="0.55"/>
+                                        <TextBox x:Name="AlbumSearchBox" BorderThickness="0" Background="Transparent"
+                                                 FontFamily="Segoe UI" FontSize="12" VerticalAlignment="Center"
+                                                 TextChanged="AlbumSearchBox_TextChanged"
+                                                 PreviewKeyDown="AlbumSearchBox_PreviewKeyDown"/>
+                                    </DockPanel>
+                                </Border>
+                                <ScrollViewer x:Name="AlbumPopupScroll" MaxHeight="400"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="AlbumPopupItems">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
                         </Border>
                     </Popup>
                 </StackPanel>

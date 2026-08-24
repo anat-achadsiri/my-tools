@@ -25,6 +25,11 @@ namespace SoftSnapWPF
         private string _currentAlbum = "Screenshots";
         private Dictionary<string, string> _albums = new();
         private List<string> _albumOrder = new(); // MRU order (most recent first)
+        private List<string> _pinnedAlbums = new(); // ปักหมุด — แสดงหน้าสุดเสมอ ไม่โดน MRU ดัน
+        private readonly Dictionary<string, int> _albumCounts = new(); // cache จำนวนรูปต่อ album
+        private List<string> _popupFiltered = new(); // album ที่ผ่าน filter (ตามลำดับที่แสดงใน popup)
+        private readonly List<Border> _popupRows = new(); // แถวใน popup (คู่กับ _popupFiltered)
+        private int _popupSelIndex = 0; // แถวที่ highlight ด้วยคีย์บอร์ด
         private readonly HashSet<string> _selected = new();
         private bool _isDark = true;
         private bool _sortNewestFirst = true; // true = ใหม่→เก่า, false = เก่า→ใหม่
@@ -110,6 +115,8 @@ namespace SoftSnapWPF
                     if (item.GetString() is string s) _albumOrder.Add(s);
             }
 
+            _pinnedAlbums = ReadStringArray("pinned_albums");
+
             // Load grouping state
             _activeGroups = ReadStringDict("active_groups");
             foreach (var p in ReadStringArray("collapsed_groups")) _collapsedGroups.Add(p);
@@ -152,6 +159,7 @@ namespace SoftSnapWPF
             _cfg["current_album"] = _currentAlbum;
             _cfg["albums"] = _albums;
             _cfg["album_order"] = _albumOrder;
+            _cfg["pinned_albums"] = _pinnedAlbums;
             _cfg["active_groups"] = _activeGroups;
             _cfg["collapsed_groups"] = _collapsedGroups.ToList();
             _cfg["hidden_groups"] = _hiddenGroups.ToList();
@@ -179,6 +187,7 @@ namespace SoftSnapWPF
 
             // Sync album order: remove deleted albums, add new ones at end
             _albumOrder.RemoveAll(n => !_albums.ContainsKey(n));
+            _pinnedAlbums.RemoveAll(n => !_albums.ContainsKey(n));
             foreach (var name in _albums.Keys)
                 if (!_albumOrder.Contains(name)) _albumOrder.Add(name);
 
@@ -212,94 +221,301 @@ namespace SoftSnapWPF
 
         private const int MaxVisibleTabs = 6;
 
+        /// <summary>\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25: \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14\u0E01\u0E48\u0E2D\u0E19 (\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E1B\u0E31\u0E01) \u0E41\u0E25\u0E49\u0E27\u0E15\u0E32\u0E21\u0E14\u0E49\u0E27\u0E22 MRU \u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D</summary>
+        private List<string> GetOrderedAlbums()
+        {
+            var pinned = _pinnedAlbums.Where(n => _albums.ContainsKey(n)).ToList();
+            var rest = _albumOrder.Where(n => _albums.ContainsKey(n) && !pinned.Contains(n));
+            return pinned.Concat(rest).ToList();
+        }
+
         private void RefreshAlbumTabs()
         {
             AlbumTabs.Items.Clear();
 
-            // Use MRU order for tabs (most recently used first)
-            var albumNames = _albumOrder.Where(n => _albums.ContainsKey(n)).ToList();
-
+            var albumNames = GetOrderedAlbums();
             var visible = albumNames.Take(MaxVisibleTabs).ToList();
-            var overflow = albumNames.Skip(MaxVisibleTabs).ToList();
+            var overflowCount = albumNames.Count - visible.Count;
 
             foreach (var name in visible)
                 AlbumTabs.Items.Add(CreateAlbumPill(name));
 
-            // Overflow dropdown
-            if (overflow.Count > 0)
+            // Overflow dropdown button
+            if (overflowCount > 0)
             {
                 AlbumOverflowBtn.Visibility = Visibility.Visible;
-                AlbumOverflowText.Text = $"\u25BE +{overflow.Count}";
+                AlbumOverflowText.Text = $"\u25BE +{overflowCount}";
                 AlbumOverflowBtn.Background = new SolidColorBrush(_isDark
                     ? Color.FromRgb(45, 45, 50)
                     : Color.FromRgb(235, 235, 240));
                 AlbumOverflowText.Foreground = new SolidColorBrush(_isDark
                     ? Color.FromRgb(180, 180, 190)
                     : Color.FromRgb(85, 85, 85));
-
-                // Build popup items (all albums in MRU order)
-                AlbumPopupItems.Items.Clear();
-                foreach (var name in albumNames)
-                {
-                    var isActive = name == _currentAlbum;
-                    var item = new Border
-                    {
-                        CornerRadius = new CornerRadius(4),
-                        Padding = new Thickness(12, 6, 12, 6),
-                        Margin = new Thickness(2, 2, 2, 2),
-                        Cursor = Cursors.Hand,
-                        Background = new SolidColorBrush(isActive
-                            ? (_isDark ? Color.FromRgb(55, 55, 75) : Color.FromRgb(0, 120, 215))
-                            : Colors.Transparent)
-                    };
-                    var lbl = new TextBlock
-                    {
-                        Text = name,
-                        FontFamily = new FontFamily("Segoe UI"),
-                        FontSize = 12,
-                        FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
-                        Foreground = new SolidColorBrush(isActive
-                            ? Colors.White
-                            : (_isDark ? Color.FromRgb(220, 220, 220) : Color.FromRgb(30, 30, 30)))
-                    };
-                    item.Child = lbl;
-                    var albumName = name;
-                    item.MouseLeftButtonDown += (_, _) =>
-                    {
-                        AlbumPopup.IsOpen = false;
-                        if (albumName != _currentAlbum)
-                            AlbumCombo.SelectedItem = albumName;
-                    };
-                    item.MouseEnter += (s, _) =>
-                    {
-                        if (!_selected.Contains(albumName))
-                            ((Border)s!).Background = new SolidColorBrush(_isDark
-                                ? Color.FromRgb(50, 50, 55) : Color.FromRgb(240, 240, 245));
-                    };
-                    item.MouseLeave += (s, _) =>
-                    {
-                        var a = ((Border)s!).Child is TextBlock t && t.FontWeight == FontWeights.SemiBold;
-                        ((Border)s).Background = new SolidColorBrush(a
-                            ? (_isDark ? Color.FromRgb(55, 55, 75) : Color.FromRgb(0, 120, 215))
-                            : Colors.Transparent);
-                    };
-                    AlbumPopupItems.Items.Add(item);
-                }
-
-                AlbumPopupBorder.Background = new SolidColorBrush(_isDark
-                    ? Color.FromRgb(40, 40, 45) : Colors.White);
-                AlbumPopupBorder.BorderBrush = new SolidColorBrush(_isDark
-                    ? Color.FromRgb(60, 60, 65) : Color.FromRgb(224, 224, 224));
             }
             else
             {
                 AlbumOverflowBtn.Visibility = Visibility.Collapsed;
+            }
+
+            // Popup chrome (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E2A\u0E21\u0E2D \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49 Ctrl+K \u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E41\u0E21\u0E49 album \u0E19\u0E49\u0E2D\u0E22)
+            AlbumPopupBorder.Background = new SolidColorBrush(_isDark
+                ? Color.FromRgb(40, 40, 45) : Colors.White);
+            AlbumPopupBorder.BorderBrush = new SolidColorBrush(_isDark
+                ? Color.FromRgb(60, 60, 65) : Color.FromRgb(224, 224, 224));
+            AlbumSearchBorder.Background = new SolidColorBrush(_isDark
+                ? Color.FromRgb(30, 30, 34) : Colors.White);
+            AlbumSearchBorder.BorderBrush = new SolidColorBrush(_isDark
+                ? Color.FromRgb(70, 70, 78) : Color.FromRgb(213, 213, 213));
+            AlbumSearchBox.Foreground = new SolidColorBrush(_isDark
+                ? Color.FromRgb(230, 230, 230) : Color.FromRgb(30, 30, 30));
+            AlbumSearchBox.CaretBrush = AlbumSearchBox.Foreground;
+            AlbumSearchIcon.Foreground = new SolidColorBrush(_isDark
+                ? Color.FromRgb(180, 180, 190) : Color.FromRgb(85, 85, 85));
+
+            RefreshAlbumPopup();
+        }
+
+        /// <summary>\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 popup \u0E15\u0E32\u0E21\u0E04\u0E33\u0E04\u0E49\u0E19\u0E2B\u0E32 \u2014 \u0E41\u0E1A\u0E48\u0E07 section \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14 / \u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14</summary>
+        private void RefreshAlbumPopup()
+        {
+            AlbumPopupItems.Items.Clear();
+            _popupFiltered.Clear();
+            _popupRows.Clear();
+
+            var filter = (AlbumSearchBox.Text ?? "").Trim();
+            var albumNames = GetOrderedAlbums();
+            var matched = albumNames
+                .Where(n => filter.Length == 0 || n.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var pinnedMatched = matched.Where(n => _pinnedAlbums.Contains(n)).ToList();
+            var restMatched = matched.Where(n => !_pinnedAlbums.Contains(n)).ToList();
+
+            if (pinnedMatched.Count > 0)
+            {
+                AlbumPopupItems.Items.Add(CreatePopupSectionHeader("\uD83D\uDCCC \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14"));
+                foreach (var name in pinnedMatched)
+                    AddPopupRow(name);
+            }
+            if (restMatched.Count > 0)
+            {
+                if (pinnedMatched.Count > 0)
+                    AlbumPopupItems.Items.Add(CreatePopupSectionHeader(filter.Length == 0 ? "\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14" : "\u0E2D\u0E37\u0E48\u0E19 \u0E46"));
+                foreach (var name in restMatched)
+                    AddPopupRow(name);
+            }
+            if (matched.Count == 0)
+            {
+                AlbumPopupItems.Items.Add(new TextBlock
+                {
+                    Text = "\u0E44\u0E21\u0E48\u0E1E\u0E1A album \u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E04\u0E33\u0E04\u0E49\u0E19\u0E2B\u0E32",
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontSize = 11,
+                    Margin = new Thickness(12, 8, 12, 8),
+                    Foreground = new SolidColorBrush(_isDark
+                        ? Color.FromRgb(140, 140, 150) : Color.FromRgb(130, 130, 130))
+                });
+            }
+
+            if (_popupSelIndex >= _popupFiltered.Count) _popupSelIndex = 0;
+            UpdatePopupHighlight();
+        }
+
+        private TextBlock CreatePopupSectionHeader(string text) => new()
+        {
+            Text = text,
+            FontFamily = new FontFamily("Segoe UI"),
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(10, 6, 10, 2),
+            Foreground = new SolidColorBrush(_isDark
+                ? Color.FromRgb(140, 140, 150) : Color.FromRgb(130, 130, 130))
+        };
+
+        private void AddPopupRow(string name)
+        {
+            var isActive = name == _currentAlbum;
+            var isPinned = _pinnedAlbums.Contains(name);
+
+            var row = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(10, 6, 8, 6),
+                Margin = new Thickness(2, 1, 2, 1),
+                Cursor = Cursors.Hand,
+                Tag = name
+            };
+
+            var panel = new DockPanel { LastChildFill = true };
+
+            // \u0E1B\u0E38\u0E48\u0E21\u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14 (\u0E02\u0E27\u0E32\u0E2A\u0E38\u0E14)
+            var pinBtn = new TextBlock
+            {
+                Text = "\uD83D\uDCCC",
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0),
+                Opacity = isPinned ? 1.0 : 0.25,
+                Cursor = Cursors.Hand,
+                ToolTip = isPinned ? "\u0E16\u0E2D\u0E19\u0E2B\u0E21\u0E38\u0E14" : "\u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14\u0E44\u0E27\u0E49\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E38\u0E14"
+            };
+            DockPanel.SetDock(pinBtn, Dock.Right);
+            pinBtn.MouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true; // \u0E2D\u0E22\u0E48\u0E32\u0E43\u0E2B\u0E49\u0E17\u0E30\u0E25\u0E38\u0E44\u0E1B\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19 album
+                TogglePinAlbum(name);
+            };
+            panel.Children.Add(pinBtn);
+
+            // \u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E39\u0E1B (\u0E02\u0E27\u0E32)
+            var countLbl = new TextBlock
+            {
+                Text = _albumCounts.TryGetValue(name, out var c) ? c.ToString() : "",
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = 10,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(10, 0, 0, 0),
+                Foreground = new SolidColorBrush(isActive
+                    ? Color.FromArgb(200, 255, 255, 255)
+                    : (_isDark ? Color.FromRgb(140, 140, 150) : Color.FromRgb(140, 140, 140)))
+            };
+            DockPanel.SetDock(countLbl, Dock.Right);
+            panel.Children.Add(countLbl);
+            UpdateAlbumCountAsync(name, countLbl);
+
+            // \u0E0A\u0E37\u0E48\u0E2D album
+            var lbl = new TextBlock
+            {
+                Text = name,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = 12,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
+                Foreground = new SolidColorBrush(isActive
+                    ? Colors.White
+                    : (_isDark ? Color.FromRgb(220, 220, 220) : Color.FromRgb(30, 30, 30)))
+            };
+            panel.Children.Add(lbl);
+
+            row.Child = panel;
+
+            var albumName = name;
+            row.MouseLeftButtonDown += (_, _) => SelectAlbumFromPopup(albumName);
+            var rowIndex = _popupFiltered.Count;
+            row.MouseEnter += (_, _) =>
+            {
+                _popupSelIndex = rowIndex;
+                UpdatePopupHighlight();
+            };
+
+            _popupFiltered.Add(name);
+            _popupRows.Add(row);
+            AlbumPopupItems.Items.Add(row);
+        }
+
+        private void SelectAlbumFromPopup(string name)
+        {
+            AlbumPopup.IsOpen = false;
+            if (name != _currentAlbum)
+                AlbumCombo.SelectedItem = name;
+        }
+
+        private void TogglePinAlbum(string name)
+        {
+            if (!_pinnedAlbums.Remove(name))
+                _pinnedAlbums.Add(name);
+            SaveConfig();
+            RefreshAlbumTabs(); // \u0E2A\u0E23\u0E49\u0E32\u0E07 pills + popup \u0E43\u0E2B\u0E21\u0E48 (\u0E04\u0E33\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E43\u0E19 box \u0E04\u0E07\u0E40\u0E14\u0E34\u0E21)
+        }
+
+        private void UpdatePopupHighlight()
+        {
+            for (int i = 0; i < _popupRows.Count; i++)
+            {
+                var row = _popupRows[i];
+                var isActive = (string)row.Tag == _currentAlbum;
+                var isHighlight = i == _popupSelIndex;
+                row.Background = new SolidColorBrush(
+                    isActive ? (_isDark ? Color.FromRgb(55, 55, 75) : Color.FromRgb(0, 120, 215))
+                    : isHighlight ? (_isDark ? Color.FromRgb(50, 50, 55) : Color.FromRgb(238, 240, 245))
+                    : Colors.Transparent);
+            }
+        }
+
+        /// <summary>\u0E19\u0E31\u0E1A\u0E08\u0E33\u0E19\u0E27\u0E19\u0E23\u0E39\u0E1B\u0E43\u0E19 album \u0E41\u0E1A\u0E1A background + cache (\u0E01\u0E31\u0E19\u0E0A\u0E49\u0E32\u0E01\u0E31\u0E1A\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E43\u0E2B\u0E0D\u0E48/network)</summary>
+        private void UpdateAlbumCountAsync(string name, TextBlock lbl)
+        {
+            if (_albumCounts.ContainsKey(name)) return; // \u0E21\u0E35 cache \u0E41\u0E25\u0E49\u0E27 \u2014 set \u0E44\u0E1B\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07 lbl \u0E41\u0E25\u0E49\u0E27
+            if (!_albums.TryGetValue(name, out var dir)) return;
+            Task.Run(() =>
+            {
+                int cnt = 0;
+                try
+                {
+                    cnt = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+                        .Count(f => ImgExts.Contains(Path.GetExtension(f).ToLowerInvariant()));
+                }
+                catch { /* \u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E2B\u0E32\u0E22/\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C \u2014 \u0E41\u0E2A\u0E14\u0E07\u0E27\u0E48\u0E32\u0E07\u0E44\u0E27\u0E49 */ }
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _albumCounts[name] = cnt;
+                    lbl.Text = cnt.ToString();
+                }));
+            });
+        }
+
+        private void OpenAlbumPopup()
+        {
+            _albumCounts.Clear(); // \u0E19\u0E31\u0E1A\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E40\u0E1B\u0E34\u0E14 (async \u0E44\u0E21\u0E48\u0E1A\u0E25\u0E47\u0E2D\u0E01 UI)
+            AlbumSearchBox.Text = "";
+            _popupSelIndex = 0;
+            RefreshAlbumPopup();
+            AlbumPopup.PlacementTarget = AlbumOverflowBtn.Visibility == Visibility.Visible
+                ? AlbumOverflowBtn : (UIElement)AlbumTabs;
+            AlbumPopup.IsOpen = true;
+            Dispatcher.BeginInvoke(new Action(() => AlbumSearchBox.Focus()),
+                System.Windows.Threading.DispatcherPriority.Input);
+        }
+
+        private void AlbumSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _popupSelIndex = 0;
+            RefreshAlbumPopup();
+        }
+
+        private void AlbumSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case Key.Down:
+                    if (_popupFiltered.Count > 0)
+                        _popupSelIndex = (_popupSelIndex + 1) % _popupFiltered.Count;
+                    UpdatePopupHighlight();
+                    e.Handled = true;
+                    break;
+                case Key.Up:
+                    if (_popupFiltered.Count > 0)
+                        _popupSelIndex = (_popupSelIndex - 1 + _popupFiltered.Count) % _popupFiltered.Count;
+                    UpdatePopupHighlight();
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    if (_popupSelIndex >= 0 && _popupSelIndex < _popupFiltered.Count)
+                        SelectAlbumFromPopup(_popupFiltered[_popupSelIndex]);
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    AlbumPopup.IsOpen = false;
+                    e.Handled = true;
+                    break;
             }
         }
 
         private Border CreateAlbumPill(string name)
         {
             var isActive = name == _currentAlbum;
+            var isPinned = _pinnedAlbums.Contains(name);
 
             var pill = new Border
             {
@@ -307,6 +523,7 @@ namespace SoftSnapWPF
                 Padding = new Thickness(14, 5, 14, 5),
                 Margin = new Thickness(0, 0, 6, 0),
                 Cursor = Cursors.Hand,
+                ToolTip = isPinned ? "คลิกขวาเพื่อถอนหมุด" : "คลิกขวาเพื่อปักหมุดไว้หน้าสุด",
                 Background = new SolidColorBrush(isActive
                     ? (_isDark ? Color.FromRgb(55, 55, 75) : Color.FromRgb(0, 120, 215))
                     : (_isDark ? Color.FromRgb(45, 45, 50) : Color.FromRgb(235, 235, 240))),
@@ -318,7 +535,7 @@ namespace SoftSnapWPF
 
             var label = new TextBlock
             {
-                Text = name,
+                Text = isPinned ? "📌 " + name : name,
                 FontFamily = new FontFamily("Segoe UI"),
                 FontSize = 12,
                 FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal,
@@ -335,6 +552,11 @@ namespace SoftSnapWPF
                 if (albumName == _currentAlbum) return;
                 AlbumCombo.SelectedItem = albumName;
             };
+            pill.MouseRightButtonDown += (_, e) =>
+            {
+                e.Handled = true;
+                TogglePinAlbum(albumName);
+            };
 
             // Hover effect for inactive pills
             if (!isActive)
@@ -350,7 +572,10 @@ namespace SoftSnapWPF
 
         private void AlbumOverflowBtn_Click(object sender, MouseButtonEventArgs e)
         {
-            AlbumPopup.IsOpen = !AlbumPopup.IsOpen;
+            if (AlbumPopup.IsOpen)
+                AlbumPopup.IsOpen = false;
+            else
+                OpenAlbumPopup();
         }
 
         private void BumpAlbumOrder(string name)
@@ -473,6 +698,7 @@ namespace SoftSnapWPF
         private void RefreshBtn_Click(object sender, RoutedEventArgs e)
         {
             _selected.Clear();
+            _albumCounts.Clear();
             LoadGallery();
             SetStatus("Refreshed");
         }
@@ -1834,6 +2060,10 @@ namespace SoftSnapWPF
         // ── Keyboard shortcuts ──────────────────────────────────────
         private async void Window_KeyDown(object sender, KeyEventArgs e)
         {
+            // ระหว่างพิมพ์ค้นหา album — อย่าให้คีย์ลัดของหน้าต่างทำงาน (เช่น Ctrl+V paste รูป)
+            if (AlbumSearchBox.IsKeyboardFocusWithin)
+                return;
+
             switch (e.Key)
             {
                 case Key.F5:
@@ -1851,8 +2081,14 @@ namespace SoftSnapWPF
                 case Key.R when Keyboard.Modifiers == ModifierKeys.Control:
                     RefreshBtn_Click(sender, e);
                     break;
+                case Key.K when Keyboard.Modifiers == ModifierKeys.Control:
+                    OpenAlbumPopup();
+                    break;
                 case Key.Escape:
-                    Close();
+                    if (AlbumPopup.IsOpen)
+                        AlbumPopup.IsOpen = false;
+                    else
+                        Close();
                     break;
             }
         }
