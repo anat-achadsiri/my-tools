@@ -52,34 +52,14 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- Title bar -->
             <RowDefinition Height="Auto"/>  <!-- Toolbar -->
             <RowDefinition Height="Auto"/>  <!-- Address bar -->
             <RowDefinition Height="*"/>     <!-- Gallery -->
             <RowDefinition Height="28"/>    <!-- Status bar -->
         </Grid.RowDefinitions>
 
-        <!-- ══ Title Bar ══ -->
-        <Border x:Name="TitleBar" Grid.Row="0" Background="#F3F3F3" Padding="12,8">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="StatusLabel" Text="&#x2713; Ready"
-                               Foreground="#107C10" FontFamily="Segoe UI" FontSize="11"
-                               VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <Button x:Name="ThemeBtn" Content="&#x263D;"
-                            Style="{StaticResource ToolbarButton}"
-                            FontSize="16" Padding="6,4" Click="ThemeBtn_Click"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="&#x1F4F7;" FontSize="18" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="SoftSnap" FontFamily="Segoe UI" FontSize="16" FontWeight="SemiBold"
-                               Foreground="#1A1A2E" VerticalAlignment="Center"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
         <!-- ══ Toolbar (flat, like Explorer) ══ -->
-        <Border x:Name="ToolbarBorder" Grid.Row="1" Background="#F9F9F9" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1">
+        <Border x:Name="ToolbarBorder" Grid.Row="0" Background="#F9F9F9" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" Margin="8,2">
                 <Button Style="{StaticResource ToolbarButton}" Click="CaptureFullBtn_Click" ToolTip="Capture Full Screen (F5)">
                     <StackPanel Orientation="Horizontal">
@@ -97,18 +77,6 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#x1FA9F;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
                         <TextBlock Text="Window" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource ToolbarButton}" Click="AddLabelBtn_Click" ToolTip="สร้างกลุ่มใหม่ (ป้ายกำกับ) — รูปที่ capture ต่อไปจะเข้ากลุ่มนี้">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x1F3F7;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="Label" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource ToolbarButton}" Click="GroupSelBtn_Click" ToolTip="ย้ายรูปที่เลือกเข้ากลุ่มที่กำลังใช้งาน (คลิกป้ายเพื่อเลือกกลุ่มก่อน)">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x1F5C2;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="Group" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
                 <Border Style="{StaticResource ToolbarSep}"/>
@@ -131,32 +99,15 @@
                     </StackPanel>
                 </Button>
                 <Border Style="{StaticResource ToolbarSep}"/>
-                <Button Style="{StaticResource ToolbarButton}" Click="AddAlbumBtn_Click" ToolTip="New Album">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x2795;" FontSize="12" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="New" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource ToolbarButton}" Click="BrowseAlbumBtn_Click" ToolTip="Browse Folder as Album">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x1F4C1;" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock Text="Browse" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-                <Button Style="{StaticResource ToolbarButton}" Click="RemoveAlbumBtn_Click" ToolTip="Remove Album">
-                    <TextBlock Text="&#x2715;" FontSize="12" Foreground="#C42B1C"/>
-                </Button>
-                <Button Style="{StaticResource ToolbarButton}" Click="OpenFolderBtn_Click" ToolTip="Open in Explorer">
-                    <TextBlock Text="&#x1F4C2;" FontSize="14"/>
-                </Button>
-                <Button Style="{StaticResource ToolbarButton}" Click="RefreshBtn_Click" ToolTip="Refresh (Ctrl+R)">
-                    <TextBlock Text="&#x1F504;" FontSize="14"/>
-                </Button>
+                <Button x:Name="ThemeBtn" Content="&#x263D;"
+                        Style="{StaticResource ToolbarButton}"
+                        FontSize="14" Padding="8,2" Click="ThemeBtn_Click"
+                        ToolTip="สลับธีม มืด/สว่าง"/>
             </StackPanel>
         </Border>
 
         <!-- ══ Address Bar (album tabs + path) ══ -->
-        <Border x:Name="AddressBar" Grid.Row="2" Background="#FFFFFF" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
+        <Border x:Name="AddressBar" Grid.Row="1" Background="#FFFFFF" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
                 Padding="6,3">
             <DockPanel>
                 <!-- Right: count + path -->
@@ -194,6 +145,16 @@
                             MouseLeftButtonDown="AlbumOverflowBtn_Click">
                         <TextBlock x:Name="AlbumOverflowText" Text="&#x25BE; +0"
                                    FontFamily="Segoe UI" FontSize="11" Foreground="#555"/>
+                    </Border>
+
+                    <!-- New album pill -->
+                    <Border x:Name="AddAlbumPill"
+                            CornerRadius="14" Padding="10,5" Margin="0,0,4,0"
+                            Cursor="Hand" Background="#EBEBF0" ToolTip="สร้าง Album ใหม่"
+                            MouseLeftButtonDown="AddAlbumPill_Click">
+                        <TextBlock x:Name="AddAlbumPillText" Text="&#x2795;"
+                                   FontFamily="Segoe UI" FontSize="10" Foreground="#555"
+                                   VerticalAlignment="Center"/>
                     </Border>
 
                     <!-- Popup for overflow albums -->
@@ -241,8 +202,34 @@
             </DockPanel>
         </Border>
 
-        <!-- ══ Gallery ══ -->
-        <Border x:Name="GalleryBorder" Grid.Row="3" Background="#FFFFFF">
+        <!-- ══ Folder tree sidebar + Gallery ══ -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250" MinWidth="140"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Sidebar: folder tree (explorer-style) -->
+            <Border x:Name="SidebarBorder" Grid.Column="0" Background="#FFFFFF"
+                    BorderBrush="#E5E5E5" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <TextBlock x:Name="TreeCountLabel" DockPanel.Dock="Bottom" Text=""
+                               FontFamily="Segoe UI" FontSize="11" Foreground="#666"
+                               Margin="10,4,10,6"/>
+                    <TreeView x:Name="FolderTree" BorderThickness="0" Background="Transparent"
+                              Padding="2,6,2,2"
+                              SelectedItemChanged="FolderTree_SelectedItemChanged"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              VirtualizingStackPanel.IsVirtualizing="False"/>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter x:Name="TreeSplitter" Grid.Column="1" Width="4"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          Background="Transparent" ShowsPreview="False"/>
+
+            <Border x:Name="GalleryBorder" Grid.Column="2" Background="#FFFFFF">
             <ScrollViewer x:Name="GalleryScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           PreviewMouseLeftButtonDown="GalleryScroll_PreviewMouseDown"
                           PreviewMouseMove="GalleryScroll_PreviewMouseMove"
@@ -263,18 +250,23 @@
                     </Canvas>
                 </Grid>
             </ScrollViewer>
-        </Border>
+            </Border>
+        </Grid>
 
         <!-- ══ Status Bar ══ -->
-        <Border x:Name="BottomBar" Grid.Row="4" Background="#F3F3F3" BorderBrush="#E5E5E5" BorderThickness="0,1,0,0">
+        <Border x:Name="BottomBar" Grid.Row="3" Background="#F3F3F3" BorderBrush="#E5E5E5" BorderThickness="0,1,0,0">
             <DockPanel Margin="12,0">
                 <TextBlock x:Name="SelInfoLabel" DockPanel.Dock="Right" Text="" Foreground="#666"
                            FontFamily="Segoe UI" FontSize="10"
                            VerticalAlignment="Center"/>
-                <CheckBox x:Name="SelectAllCheck" Content="เลือกทั้งหมด"
+                <CheckBox x:Name="SelectAllCheck" DockPanel.Dock="Left" Content="เลือกทั้งหมด"
                           Foreground="#333" FontFamily="Segoe UI" FontSize="11"
                           VerticalContentAlignment="Center"
                           Click="SelectAllCheck_Click"/>
+                <TextBlock x:Name="StatusLabel" Text="&#x2713; Ready"
+                           Foreground="#107C10" FontFamily="Segoe UI" FontSize="11"
+                           VerticalAlignment="Center" Margin="16,0,8,0"
+                           TextTrimming="CharacterEllipsis"/>
             </DockPanel>
         </Border>
     </Grid>

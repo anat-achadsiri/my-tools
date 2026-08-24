@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -52,6 +52,12 @@ namespace SoftSnapWPF
         private readonly HashSet<string> _migratedAlbums = new();       // ราก Album ที่ migrate แล้ว
         private readonly Dictionary<string, Border> _groupHeaders = new();     // group dir -> header card
         private readonly Dictionary<string, TextBlock> _groupBadges = new();   // group dir -> active badge
+
+        // ── Folder navigation (แสดงโฟลเดอร์ในอัลบัมแบบ Explorer) ─────
+        private string _currentDir = "";                                  // โฟลเดอร์ที่กำลังเปิดดูอยู่ (ราก = _saveDir)
+        private readonly Dictionary<string, string> _currentDirs = new(); // album -> โฟลเดอร์ล่าสุดที่เปิด (จำเฉพาะระหว่างเปิดแอป)
+        private readonly HashSet<string> _expandedDirs = new(StringComparer.OrdinalIgnoreCase); // โฟลเดอร์ที่ขยายอยู่ใน tree
+        private bool _treeSyncing;                                        // กัน event วนตอน rebuild/sync tree
 
         public MainWindow()
         {
@@ -203,7 +209,10 @@ namespace SoftSnapWPF
 
             Directory.CreateDirectory(_saveDir);
 
-            _activeGroup = _activeGroups.TryGetValue(_currentAlbum, out var ag) && Directory.Exists(ag) ? ag : null;
+            _currentDir = _saveDir;
+
+            _activeGroup = _activeGroups.TryGetValue(_currentAlbum, out var ag) && Directory.Exists(ag)
+                && SameDir(Path.GetDirectoryName(ag) ?? "", _saveDir) ? ag : null;
         }
 
         private void RefreshAlbumCombo()
@@ -256,6 +265,14 @@ namespace SoftSnapWPF
             {
                 AlbumOverflowBtn.Visibility = Visibility.Collapsed;
             }
+
+            // ปุ่มสร้าง album ใหม่ (ต่อท้าย +N)
+            AddAlbumPill.Background = new SolidColorBrush(_isDark
+                ? Color.FromRgb(45, 45, 50)
+                : Color.FromRgb(235, 235, 240));
+            AddAlbumPillText.Foreground = new SolidColorBrush(_isDark
+                ? Color.FromRgb(180, 180, 190)
+                : Color.FromRgb(85, 85, 85));
 
             // Popup chrome (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E2A\u0E21\u0E2D \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49 Ctrl+K \u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E41\u0E21\u0E49 album \u0E19\u0E49\u0E2D\u0E22)
             AlbumPopupBorder.Background = new SolidColorBrush(_isDark
@@ -578,6 +595,12 @@ namespace SoftSnapWPF
                 OpenAlbumPopup();
         }
 
+        private void AddAlbumPill_Click(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            AddAlbumBtn_Click(sender, e);
+        }
+
         private void BumpAlbumOrder(string name)
         {
             _albumOrder.Remove(name);
@@ -590,14 +613,12 @@ namespace SoftSnapWPF
             {
                 _currentAlbum = name;
                 _saveDir = dir;
-                _activeGroup = _activeGroups.TryGetValue(name, out var ag) && Directory.Exists(ag) ? ag : null;
                 BumpAlbumOrder(name);
                 Directory.CreateDirectory(_saveDir);
                 SaveConfig();
-                PathLabel.Text = _saveDir;
-                _selected.Clear();
                 RefreshAlbumTabs();
-                LoadGallery();
+                // กลับไปยังโฟลเดอร์ล่าสุดที่เปิดไว้ในอัลบัมนี้ (ถ้ายังอยู่) — NavigateTo จัดการ active group ให้
+                NavigateTo(_currentDirs.TryGetValue(name, out var last) ? last : dir);
                 SetStatus($"Album: {name}");
             }
         }
@@ -625,6 +646,7 @@ namespace SoftSnapWPF
             _albums[name] = albumPath;
             _currentAlbum = name;
             _saveDir = albumPath;
+            _currentDir = albumPath;
             _activeGroup = null;
             BumpAlbumOrder(name);
             SaveConfig();
@@ -653,6 +675,7 @@ namespace SoftSnapWPF
             _albums[name] = dlg.SelectedPath;
             _currentAlbum = name;
             _saveDir = dlg.SelectedPath;
+            _currentDir = dlg.SelectedPath;
             _activeGroup = null;
             BumpAlbumOrder(name);
             SaveConfig();
@@ -677,10 +700,13 @@ namespace SoftSnapWPF
             _albums.Remove(name);
             _albumOrder.Remove(name);
             _activeGroups.Remove(name);
+            _currentDirs.Remove(name);
             var first = _albumOrder.FirstOrDefault() ?? _albums.Keys.First();
             _currentAlbum = first;
             _saveDir = _albums[first];
-            _activeGroup = _activeGroups.TryGetValue(first, out var ag) && Directory.Exists(ag) ? ag : null;
+            _currentDir = _currentDirs.TryGetValue(first, out var lastDir) ? lastDir : _saveDir;
+            _activeGroup = _activeGroups.TryGetValue(first, out var ag) && Directory.Exists(ag)
+                && SameDir(Path.GetDirectoryName(ag) ?? "", CurrentViewDir()) ? ag : null;
             SaveConfig();
 
             _selected.Clear();
@@ -691,8 +717,9 @@ namespace SoftSnapWPF
 
         private void OpenFolderBtn_Click(object sender, RoutedEventArgs e)
         {
-            Directory.CreateDirectory(_saveDir);
-            Process.Start("explorer.exe", _saveDir);
+            var dir = CurrentViewDir();
+            Directory.CreateDirectory(dir);
+            Process.Start("explorer.exe", dir);
         }
 
         private void RefreshBtn_Click(object sender, RoutedEventArgs e)
@@ -704,9 +731,11 @@ namespace SoftSnapWPF
         }
 
         // ── Grouping helpers ────────────────────────────────────────
-        // โฟลเดอร์ปลายทางสำหรับบันทึกรูปใหม่ (กลุ่ม active หรือราก Album)
+        // โฟลเดอร์ปลายทางสำหรับบันทึกรูปใหม่ (กลุ่ม active หรือโฟลเดอร์ที่เปิดดูอยู่)
+        // กลุ่มที่ถูกยุบจะไม่รับรูปใหม่ — บันทึกลงโฟลเดอร์ที่เปิดอยู่แทน
         private string CurrentSaveDir()
-            => (!string.IsNullOrEmpty(_activeGroup) && Directory.Exists(_activeGroup)) ? _activeGroup! : _saveDir;
+            => (!string.IsNullOrEmpty(_activeGroup) && Directory.Exists(_activeGroup) && !_collapsedGroups.Contains(_activeGroup))
+                ? _activeGroup! : CurrentViewDir();
 
         private List<string> SortFiles(IEnumerable<string> files)
             => (_sortNewestFirst
@@ -791,6 +820,326 @@ namespace SoftSnapWPF
             SetStatus("จัดกลุ่มข้อมูลเดิมเรียบร้อย");
         }
 
+        // ── Folder navigation (แสดงโฟลเดอร์ในอัลบัมแบบ Explorer) ─────
+        private static bool IsGroupDir(string d)
+            => Path.GetFileName(d).StartsWith("grp_", StringComparison.OrdinalIgnoreCase);
+
+        private static string NormDir(string d)
+            => Path.GetFullPath(d).TrimEnd('\\', '/');
+
+        private static bool SameDir(string a, string b)
+            => string.Equals(NormDir(a), NormDir(b), StringComparison.OrdinalIgnoreCase);
+
+        // โฟลเดอร์ที่กำลังเปิดดูอยู่ (validate ทุกครั้ง — ถ้าโฟลเดอร์หาย/อยู่นอกอัลบัม ให้กลับราก)
+        private string CurrentViewDir()
+        {
+            if (string.IsNullOrEmpty(_currentDir) || !Directory.Exists(_currentDir) || !IsUnderAlbum(_currentDir))
+                _currentDir = _saveDir;
+            return _currentDir;
+        }
+
+        private bool IsUnderAlbum(string dir)
+        {
+            var root = NormDir(_saveDir);
+            var d = NormDir(dir);
+            return d.Equals(root, StringComparison.OrdinalIgnoreCase)
+                || d.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void NavigateTo(string dir)
+        {
+            if (!Directory.Exists(dir) || !IsUnderAlbum(dir)) dir = _saveDir;
+            _currentDir = dir;
+            _currentDirs[_currentAlbum] = dir;
+
+            // กลุ่ม active ใช้ได้เฉพาะเมื่ออยู่ในโฟลเดอร์ที่เปิดอยู่ — กลับมาโฟลเดอร์เดิมจะ active ให้อัตโนมัติ
+            _activeGroup = _activeGroups.TryGetValue(_currentAlbum, out var ag)
+                && Directory.Exists(ag)
+                && SameDir(Path.GetDirectoryName(ag) ?? "", dir)
+                ? ag : null;
+
+            _selected.Clear();
+            SelectAllCheck.IsChecked = false;
+            LoadGallery();
+        }
+
+        private void NavigateUp()
+        {
+            var cur = CurrentViewDir();
+            if (SameDir(cur, _saveDir)) return;
+            NavigateTo(Path.GetDirectoryName(NormDir(cur)) ?? _saveDir);
+        }
+
+        // ── Folder tree sidebar (explorer-style) ────────────────────
+        private void BuildFolderTree()
+        {
+            _treeSyncing = true;
+            try
+            {
+                FolderTree.Items.Clear();
+                var root = CreateTreeNode(_saveDir, _currentAlbum, isRoot: true);
+                PopulateTreeChildren(root);
+                root.IsExpanded = true;
+                FolderTree.Items.Add(root);
+                SelectTreeNode(root, NormDir(CurrentViewDir()));
+            }
+            finally { _treeSyncing = false; }
+            UpdateTreeCountAsync();
+        }
+
+        private TreeViewItem CreateTreeNode(string dir, string label, bool isRoot = false)
+        {
+            var normDir = NormDir(dir);
+            var fg = new SolidColorBrush(_isDark ? Color.FromRgb(220, 220, 230) : Color.FromRgb(30, 30, 30));
+
+            var header = new StackPanel { Orientation = Orientation.Horizontal };
+            header.Children.Add(new TextBlock
+            {
+                // ราก = อัลบัม ใช้ 🗂️ ให้ต่างจากโฟลเดอร์ย่อย 📁
+                Text = isRoot ? "\U0001F5C2️" : "\U0001F4C1",
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            });
+            header.Children.Add(new TextBlock
+            {
+                Text = label,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = 12,
+                FontWeight = isRoot ? FontWeights.SemiBold : FontWeights.Normal,
+                Foreground = fg,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            var node = new TreeViewItem
+            {
+                Header = header,
+                Tag = normDir,
+                Padding = new Thickness(2, 3, 2, 3)
+            };
+
+            // lazy-load: ใส่ dummy ไว้ก่อนถ้ามีโฟลเดอร์ย่อย — โหลดจริงตอนขยาย
+            if (!isRoot)
+            {
+                bool hasSubs = false;
+                try { hasSubs = Directory.EnumerateDirectories(dir).Any(); } catch { }
+                if (hasSubs)
+                {
+                    if (_expandedDirs.Contains(normDir))
+                    {
+                        PopulateTreeChildren(node);
+                        node.IsExpanded = true;
+                    }
+                    else
+                        node.Items.Add(new TreeViewItem { Tag = "…dummy…" });
+                }
+            }
+
+            node.Expanded += (s, e) =>
+            {
+                if (!ReferenceEquals(e.OriginalSource, node)) return;
+                _expandedDirs.Add(normDir);
+                if (node.Items.Count == 1 && node.Items[0] is TreeViewItem d && (d.Tag as string) == "…dummy…")
+                    PopulateTreeChildren(node);
+            };
+            node.Collapsed += (s, e) =>
+            {
+                if (!ReferenceEquals(e.OriginalSource, node)) return;
+                _expandedDirs.Remove(normDir);
+            };
+
+            // เมนูคลิกขวา (ราก Album ไม่ให้เปลี่ยนชื่อ)
+            var menu = new ContextMenu();
+            var miNewFolder = new MenuItem { Header = "สร้างโฟลเดอร์ใหม่..." };
+            miNewFolder.Click += (_, _) => CreateNewFolder(normDir);
+            menu.Items.Add(miNewFolder);
+            var miOpen = new MenuItem { Header = "เปิดใน Explorer" };
+            miOpen.Click += (_, _) => Process.Start("explorer.exe", normDir);
+            menu.Items.Add(miOpen);
+            if (!isRoot)
+            {
+                var miRename = new MenuItem { Header = "เปลี่ยนชื่อ..." };
+                miRename.Click += (_, _) => RenameFolder(normDir);
+                menu.Items.Add(miRename);
+            }
+            node.ContextMenu = menu;
+
+            return node;
+        }
+
+        private void PopulateTreeChildren(TreeViewItem node)
+        {
+            node.Items.Clear();
+            var dir = (string)node.Tag;
+            List<string> subs;
+            try { subs = Directory.GetDirectories(dir).ToList(); } catch { return; }
+
+            // โฟลเดอร์ปกติ (เรียงชื่อ) มาก่อน แล้วตามด้วยกลุ่ม grp_* (เรียงตามเวลาสร้าง)
+            var ordered = subs.Where(d => !IsGroupDir(d))
+                    .OrderBy(d => Path.GetFileName(d), StringComparer.CurrentCultureIgnoreCase)
+                .Concat(subs.Where(IsGroupDir)
+                    .OrderBy(d => Path.GetFileName(d), StringComparer.OrdinalIgnoreCase));
+            foreach (var d in ordered)
+                node.Items.Add(CreateTreeNode(d, Path.GetFileName(d)));
+        }
+
+        // ไล่หา node ของโฟลเดอร์ที่เปิดอยู่ — ขยาย ancestor ให้ครบแล้ว select
+        private void SelectTreeNode(TreeViewItem node, string targetDir)
+        {
+            var nodeDir = (string)node.Tag;
+            if (string.Equals(nodeDir, targetDir, StringComparison.OrdinalIgnoreCase))
+            {
+                node.IsSelected = true;
+                node.BringIntoView();
+                return;
+            }
+            if (!targetDir.StartsWith(nodeDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (node.Items.Count == 1 && node.Items[0] is TreeViewItem d && (d.Tag as string) == "…dummy…")
+                PopulateTreeChildren(node);
+            node.IsExpanded = true;
+            foreach (var child in node.Items.OfType<TreeViewItem>().ToList())
+                SelectTreeNode(child, targetDir);
+        }
+
+        private void FolderTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (_treeSyncing) return;
+            if (e.NewValue is TreeViewItem item && item.Tag is string dir && dir != "…dummy…" && Directory.Exists(dir))
+            {
+                if (SameDir(dir, CurrentViewDir())) return;
+                // เลื่อนไปทำหลังจบ event — กันการ rebuild tree ระหว่าง selection กำลังเปลี่ยน
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    NavigateTo(dir);
+                    SetStatus("เปิดโฟลเดอร์: " + (SameDir(dir, _saveDir) ? _currentAlbum : Path.GetFileName(dir)));
+                }));
+            }
+        }
+
+        // นับรูปทั้งอัลบัม (รวมทุกชั้น ไม่นับป้าย) แสดงมุมล่างของ sidebar
+        private void UpdateTreeCountAsync()
+        {
+            var dir = _saveDir;
+            var gen = _galleryGeneration;
+            Task.Run(() =>
+            {
+                int cnt = 0;
+                try
+                {
+                    cnt = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+                        .Count(f => IsImage(f) && !IsLabelFile(f));
+                }
+                catch { /* ไม่มีสิทธิ์/โฟลเดอร์หาย — แสดงว่างไว้ */ }
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_galleryGeneration == gen) TreeCountLabel.Text = $"{cnt} items";
+                }));
+            });
+        }
+
+        // เปลี่ยนชื่อโฟลเดอร์ย่อย — ใช้ได้ทั้งโฟลเดอร์ปกติและโฟลเดอร์กลุ่ม grp_*
+        // เปลี่ยนชื่อกลุ่ม grp_* เป็นชื่อธรรมดา = เลิกใช้ป้ายกำกับ (ลบไฟล์ _label.png ให้อัตโนมัติ)
+        private void RenameFolder(string dir)
+        {
+            var oldName = Path.GetFileName(dir);
+            bool wasGroup = IsGroupDir(dir);
+            var title = wasGroup ? "ตั้งชื่อโฟลเดอร์ (แทนป้ายกำกับ)" : "เปลี่ยนชื่อโฟลเดอร์";
+            var dlg = new InputDialog(title, "ชื่อใหม่:", wasGroup ? "" : oldName) { Owner = this };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Answer)) return;
+
+            var newName = dlg.Answer.Trim();
+            if (newName == oldName) return;
+            if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            { SetStatus("ชื่อโฟลเดอร์มีอักขระที่ใช้ไม่ได้", false); return; }
+            if (newName.StartsWith("grp_", StringComparison.OrdinalIgnoreCase))
+            { SetStatus("ชื่อขึ้นต้นด้วย grp_ สงวนไว้สำหรับกลุ่มป้ายกำกับ", false); return; }
+
+            var newDir = Path.Combine(Path.GetDirectoryName(NormDir(dir))!, newName);
+            if (Directory.Exists(newDir)) { SetStatus("มีโฟลเดอร์ชื่อนี้อยู่แล้ว", false); return; }
+            try { Directory.Move(dir, newDir); }
+            catch (Exception ex) { SetStatus("เปลี่ยนชื่อไม่สำเร็จ: " + ex.Message, false); return; }
+
+            // อัปเดต state ทุกตัวที่อ้าง path เดิม (กลุ่ม active, ยุบ/ซ่อน, โฟลเดอร์ที่เปิดอยู่, tree)
+            RemapDirState(dir, newDir);
+
+            if (wasGroup)
+            {
+                // เลิกเป็นกลุ่มป้ายกำกับ → เอาไฟล์ป้ายออก (ชื่อโฟลเดอร์แทนป้ายแล้ว)
+                try
+                {
+                    var lbl = Path.Combine(newDir, "_label.png");
+                    if (File.Exists(lbl)) File.Delete(lbl);
+                }
+                catch { /* ลบป้ายไม่ได้ — ข้ามไป ผู้ใช้ลบเองได้ */ }
+
+                // ไม่ใช่กลุ่มแล้ว — เลิกเป็นปลายทางบันทึกแบบกลุ่ม
+                if (!string.IsNullOrEmpty(_activeGroup) && SameDir(_activeGroup!, newDir))
+                {
+                    _activeGroup = null;
+                    _activeGroups.Remove(_currentAlbum);
+                }
+                _collapsedGroups.Remove(NormDir(newDir));
+                _hiddenGroups.Remove(NormDir(newDir));
+            }
+
+            SaveConfig();
+            LoadGallery();
+            SetStatus(wasGroup
+                ? $"เปลี่ยนกลุ่มเป็นโฟลเดอร์: {newName} (เอาป้ายกำกับออกแล้ว)"
+                : $"เปลี่ยนชื่อโฟลเดอร์เป็น: {newName}");
+        }
+
+        // ย้ายทุก state ที่อ้าง path เดิม (รวม path ลูก) ไปยัง path ใหม่หลังเปลี่ยนชื่อโฟลเดอร์
+        private void RemapDirState(string oldDir, string newDir)
+        {
+            var o = NormDir(oldDir);
+            var n = NormDir(newDir);
+            string Remap(string p)
+            {
+                var np = NormDir(p);
+                if (np.Equals(o, StringComparison.OrdinalIgnoreCase)) return n;
+                if (np.StartsWith(o + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    return n + np.Substring(o.Length);
+                return p;
+            }
+
+            foreach (var set in new[] { _collapsedGroups, _hiddenGroups, _expandedDirs })
+            {
+                var remapped = set.Select(Remap).ToList();
+                set.Clear();
+                foreach (var p in remapped) set.Add(p);
+            }
+            foreach (var k in _activeGroups.Keys.ToList()) _activeGroups[k] = Remap(_activeGroups[k]);
+            foreach (var k in _currentDirs.Keys.ToList()) _currentDirs[k] = Remap(_currentDirs[k]);
+            if (!string.IsNullOrEmpty(_activeGroup)) _activeGroup = Remap(_activeGroup!);
+            if (!string.IsNullOrEmpty(_currentDir)) _currentDir = Remap(_currentDir);
+        }
+
+        // สร้างโฟลเดอร์ใหม่ในโฟลเดอร์ที่ระบุ (คลิกขวาใน tree)
+        private void CreateNewFolder(string parentDir)
+        {
+            var dlg = new InputDialog("สร้างโฟลเดอร์ใหม่", "ชื่อโฟลเดอร์:", "") { Owner = this };
+            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Answer)) return;
+
+            var name = dlg.Answer.Trim();
+            if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            { SetStatus("ชื่อโฟลเดอร์มีอักขระที่ใช้ไม่ได้", false); return; }
+            if (name.StartsWith("grp_", StringComparison.OrdinalIgnoreCase))
+            { SetStatus("ชื่อขึ้นต้นด้วย grp_ สงวนไว้สำหรับกลุ่มป้ายกำกับ", false); return; }
+
+            var dir = Path.Combine(parentDir, name);
+            if (Directory.Exists(dir)) { SetStatus("มีโฟลเดอร์ชื่อนี้อยู่แล้ว", false); return; }
+            try { Directory.CreateDirectory(dir); }
+            catch (Exception ex) { SetStatus("สร้างโฟลเดอร์ไม่สำเร็จ: " + ex.Message, false); return; }
+
+            // ขยาย node แม่ใน tree ให้เห็นโฟลเดอร์ใหม่ทันที
+            _expandedDirs.Add(NormDir(parentDir));
+            LoadGallery();
+            SetStatus($"สร้างโฟลเดอร์: {name}");
+        }
+
         // ── Gallery ─────────────────────────────────────────────────
         private void LoadGallery()
         {
@@ -801,17 +1150,28 @@ namespace SoftSnapWPF
             _groupBadges.Clear();
 
             if (!Directory.Exists(_saveDir)) return;
-            MigrateAlbumIfNeeded(_saveDir);
 
-            // รูปที่ยังไม่จัดกลุ่ม (อยู่ในรากของ Album)
-            var ungrouped = SortFiles(Directory.GetFiles(_saveDir).Where(IsImage));
+            var viewDir = CurrentViewDir();
+            if (SameDir(viewDir, _saveDir)) MigrateAlbumIfNeeded(_saveDir);
+
+            PathLabel.Text = viewDir;
+            BuildFolderTree();
+
+            // รูปที่ยังไม่จัดกลุ่ม (อยู่ในรากของโฟลเดอร์ที่เปิดอยู่)
+            var ungrouped = SortFiles(Directory.GetFiles(viewDir).Where(IsImage));
 
             // ล้างรายการกลุ่มที่ซ่อนซึ่ง folder ถูกลบไปแล้ว
             _hiddenGroups.RemoveWhere(d => !Directory.Exists(d));
 
+            // โฟลเดอร์ย่อยปกติ (ไม่ใช่กลุ่ม grp_*) — แสดงเป็นการ์ดโฟลเดอร์แบบ Explorer
+            var folderDirs = Directory.GetDirectories(viewDir)
+                .Where(d => !IsGroupDir(d))
+                .OrderBy(d => Path.GetFileName(d), StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
             // โฟลเดอร์กลุ่ม (grp_*) เรียงตามชื่อ = เรียงตามเวลาสร้าง
-            var allGroupDirs = Directory.GetDirectories(_saveDir)
-                .Where(d => Path.GetFileName(d).StartsWith("grp_", StringComparison.OrdinalIgnoreCase))
+            var allGroupDirs = Directory.GetDirectories(viewDir)
+                .Where(IsGroupDir)
                 .OrderBy(d => Path.GetFileName(d), StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (_sortNewestFirst) allGroupDirs.Reverse();
@@ -836,7 +1196,9 @@ namespace SoftSnapWPF
                 groupImages[g] = imgs;
                 totalImages += imgs.Count;
             }
-            CountLabel.Text = $"{totalImages} รูป";
+            CountLabel.Text = folderDirs.Count > 0
+                ? $"{totalImages} รูป • {folderDirs.Count} โฟลเดอร์"
+                : $"{totalImages} รูป";
 
             // ล้าง selection ที่ไม่มีอยู่แล้ว (เฉพาะไฟล์รูป)
             var valid = new HashSet<string>(ungrouped);
@@ -1318,6 +1680,16 @@ namespace SoftSnapWPF
                 e.Handled = true;
             };
 
+            // เมนูคลิกขวา — เปลี่ยนกลุ่มให้เป็นโฟลเดอร์ชื่อจริง (เอาป้ายออก) ได้จากตรงนี้เลย
+            var menu = new ContextMenu();
+            var miConvert = new MenuItem { Header = "เปลี่ยนเป็นโฟลเดอร์ (ตั้งชื่อแทนป้าย)..." };
+            miConvert.Click += (_, _) => RenameFolder(groupDir);
+            menu.Items.Add(miConvert);
+            var miOpen = new MenuItem { Header = "เปิดใน Explorer" };
+            miOpen.Click += (_, _) => Process.Start("explorer.exe", groupDir);
+            menu.Items.Add(miOpen);
+            card.ContextMenu = menu;
+
             _groupHeaders[groupDir] = card;
             return (card, img);
         }
@@ -1325,7 +1697,16 @@ namespace SoftSnapWPF
         private void ToggleCollapse(string groupDir)
         {
             if (!_collapsedGroups.Remove(groupDir))
+            {
                 _collapsedGroups.Add(groupDir);
+                // ยุบกลุ่มที่กำลัง active → เลิก active เพื่อไม่ให้รูปใหม่ลงโฟลเดอร์ที่ยุบอยู่
+                if (_activeGroup == groupDir)
+                {
+                    _activeGroup = null;
+                    _activeGroups.Remove(_currentAlbum);
+                    SetStatus("ยุบกลุ่มแล้ว — รูปใหม่จะบันทึกลง Album (ไม่จัดกลุ่ม)");
+                }
+            }
             SaveConfig();
             LoadGallery();
         }
@@ -1337,6 +1718,11 @@ namespace SoftSnapWPF
                 _activeGroup = null;
                 _activeGroups.Remove(_currentAlbum);
                 SetStatus("บันทึกลง Album (ไม่จัดกลุ่ม)");
+            }
+            else if (_collapsedGroups.Contains(groupDir))
+            {
+                SetStatus("กลุ่มนี้ถูกยุบอยู่ — ขยายกลุ่มก่อนจึงจะบันทึกรูปใหม่ลงได้", false);
+                return;
             }
             else
             {
@@ -1527,37 +1913,6 @@ namespace SoftSnapWPF
         }
 
         // ── Batch Actions ───────────────────────────────────────────
-        // ย้ายรูปที่เลือกเข้ากลุ่มที่กำลังใช้งาน (สำหรับจัดรูปเก่าที่ยังไม่เข้ากลุ่ม)
-        private void GroupSelBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selected.Count == 0) { SetStatus("ไม่ได้เลือกรูป", false); return; }
-            if (string.IsNullOrEmpty(_activeGroup) || !Directory.Exists(_activeGroup))
-            {
-                SetStatus("คลิกที่ป้ายกำกับเพื่อเลือกกลุ่มปลายทางก่อน", false);
-                return;
-            }
-
-            int moved = 0;
-            foreach (var fp in _selected.ToList())
-            {
-                if (IsLabelFile(fp)) continue;
-                try
-                {
-                    if (string.Equals(Path.GetDirectoryName(fp), _activeGroup, StringComparison.OrdinalIgnoreCase))
-                        continue; // อยู่ในกลุ่มปลายทางอยู่แล้ว
-                    var dest = UniquePath(Path.Combine(_activeGroup!, Path.GetFileName(fp)));
-                    File.Move(fp, dest);
-                    moved++;
-                }
-                catch { }
-            }
-
-            _selected.Clear();
-            SelectAllCheck.IsChecked = false;
-            LoadGallery();
-            SetStatus($"ย้าย {moved} รูปเข้ากลุ่มแล้ว");
-        }
-
         private void CopySelBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_selected.Count == 0) { SetStatus("ไม่ได้เลือกรูป", false); return; }
@@ -1836,97 +2191,6 @@ namespace SoftSnapWPF
                 SortToggleBtn.Content = _sortNewestFirst ? "ใหม่→เก่า" : "เก่า→ใหม่";
         }
 
-        // ── Label = สร้างกลุ่มใหม่ (โฟลเดอร์ย่อย) แล้วตั้งเป็น active ──
-        private void AddLabelBtn_Click(object sender, RoutedEventArgs e)
-        {
-            var dlg = new InputDialog("ป้ายกำกับกลุ่ม", "พิมพ์ข้อความป้ายกำกับ:") { Owner = this };
-            if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Answer)) return;
-
-            var text = dlg.Answer.Trim();
-            CreateLabelGroup(text);
-            LoadGallery();
-            SetStatus($"เปิดกลุ่มใหม่: {text} — รูปที่ capture ต่อไปจะเข้ากลุ่มนี้");
-        }
-
-        // สร้างโฟลเดอร์กลุ่ม + render ป้ายไว้ข้างใน + ตั้งเป็นกลุ่ม active
-        private string CreateLabelGroup(string text)
-        {
-            Directory.CreateDirectory(_saveDir);
-            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var groupDir = UniqueDir(Path.Combine(_saveDir, $"grp_{ts}"));
-            Directory.CreateDirectory(groupDir);
-
-            var fp = Path.Combine(groupDir, "_label.png");
-            RenderLabelImage(text, fp);
-
-            _activeGroup = groupDir;
-            _activeGroups[_currentAlbum] = groupDir;
-            _collapsedGroups.Remove(groupDir);
-            SaveConfig();
-            return groupDir;
-        }
-
-        // วาดรูปป้ายข้อความลงไฟล์ที่ระบุ
-        private static void RenderLabelImage(string text, string outPath)
-        {
-            // สัดส่วนใกล้เคียง thumbnail ของ screenshot เพื่อให้ตัวอักษรใหญ่ อ่านง่ายจาก thumblist
-            int width = 1000, height = 620;
-            using var bmp = new System.Drawing.Bitmap(width, height);
-            using var g = System.Drawing.Graphics.FromImage(bmp);
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-
-            // Dark gradient background
-            using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                new System.Drawing.Rectangle(0, 0, width, height),
-                System.Drawing.Color.FromArgb(30, 30, 60),
-                System.Drawing.Color.FromArgb(50, 50, 100),
-                System.Drawing.Drawing2D.LinearGradientMode.ForwardDiagonal);
-            g.FillRectangle(brush, 0, 0, width, height);
-
-            // Accent bar on left
-            using var accentBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(99, 102, 241));
-            g.FillRectangle(accentBrush, 0, 0, 18, height);
-
-            // Text area (with padding) — จัดกึ่งกลางทั้งแนวตั้ง/นอน และตัดบรรทัดอัตโนมัติ
-            int padX = 50, padY = 40;
-            var textRect = new System.Drawing.RectangleF(padX, padY, width - padX * 2, height - padY * 2);
-            using var sf = new System.Drawing.StringFormat
-            {
-                Alignment = System.Drawing.StringAlignment.Center,
-                LineAlignment = System.Drawing.StringAlignment.Center,
-                Trimming = System.Drawing.StringTrimming.Word
-            };
-
-            // หาขนาดฟอนต์ใหญ่ที่สุดที่ยังพอดีในกรอบ (auto-fit)
-            float fontSize = FitFontSize(g, text, "Segoe UI", textRect.Size, sf, 200f, 28f);
-            using var font = new System.Drawing.Font("Segoe UI", fontSize, System.Drawing.FontStyle.Bold);
-
-            // เงาตัวอักษรเล็กน้อยให้อ่านชัด
-            using var shadowBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(120, 0, 0, 0));
-            var shadowRect = textRect; shadowRect.Offset(2, 3);
-            g.DrawString(text, font, shadowBrush, shadowRect, sf);
-
-            using var textBrush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
-            g.DrawString(text, font, textBrush, textRect, sf);
-
-            bmp.Save(outPath, System.Drawing.Imaging.ImageFormat.Png);
-        }
-
-        // เลือกขนาดฟอนต์ใหญ่สุดที่ข้อความยังพอดีในกรอบ (binary-ish step down)
-        private static float FitFontSize(System.Drawing.Graphics g, string text, string family,
-            System.Drawing.SizeF bounds, System.Drawing.StringFormat sf, float maxSize, float minSize)
-        {
-            for (float size = maxSize; size > minSize; size -= 2f)
-            {
-                using var f = new System.Drawing.Font(family, size, System.Drawing.FontStyle.Bold);
-                var measured = g.MeasureString(text, f, (int)bounds.Width, sf);
-                if (measured.Height <= bounds.Height && measured.Width <= bounds.Width)
-                    return size;
-            }
-            return minSize;
-        }
-
         private static bool IsLabelFile(string filepath)
         {
             var name = Path.GetFileName(filepath);
@@ -1977,11 +2241,13 @@ namespace SoftSnapWPF
                 var bg3 = new SolidColorBrush(Color.FromRgb(25, 25, 25));
 
                 MainWin.Background = bg3;
-                TitleBar.Background = bg1;
                 ToolbarBorder.Background = bg2;
                 ToolbarBorder.BorderBrush = borderBrush;
                 AddressBar.Background = bg1;
                 AddressBar.BorderBrush = borderBrush;
+                SidebarBorder.Background = bg3;
+                SidebarBorder.BorderBrush = borderBrush;
+                TreeSplitter.Background = borderBrush;
                 GalleryBorder.Background = bg3;
                 BottomBar.Background = bg1;
                 BottomBar.BorderBrush = borderBrush;
@@ -1990,11 +2256,13 @@ namespace SoftSnapWPF
             else
             {
                 MainWin.Background = Brushes.White;
-                TitleBar.Background = new SolidColorBrush(Color.FromRgb(243, 243, 243));
                 ToolbarBorder.Background = new SolidColorBrush(Color.FromRgb(249, 249, 249));
                 ToolbarBorder.BorderBrush = borderBrush;
                 AddressBar.Background = Brushes.White;
                 AddressBar.BorderBrush = borderBrush;
+                SidebarBorder.Background = Brushes.White;
+                SidebarBorder.BorderBrush = borderBrush;
+                TreeSplitter.Background = borderBrush;
                 GalleryBorder.Background = Brushes.White;
                 BottomBar.Background = new SolidColorBrush(Color.FromRgb(243, 243, 243));
                 BottomBar.BorderBrush = borderBrush;
@@ -2004,16 +2272,10 @@ namespace SoftSnapWPF
             // Update all toolbar buttons foreground
             ApplyForegroundToToolbar(ToolbarBorder, fg);
 
-            // Title bar text
-            foreach (var child in LogicalTreeHelper.GetChildren(TitleBar))
-            {
-                if (child is DockPanel dp)
-                    ApplyForegroundToToolbar(dp, fg);
-            }
-
             // Status bar
             SelectAllCheck.Foreground = fg;
             PathLabel.Foreground = fgSub;
+            TreeCountLabel.Foreground = fgSub;
             CountLabel.Foreground = fgSub;
             SelInfoLabel.Foreground = fgSub;
 
@@ -2083,6 +2345,9 @@ namespace SoftSnapWPF
                     break;
                 case Key.K when Keyboard.Modifiers == ModifierKeys.Control:
                     OpenAlbumPopup();
+                    break;
+                case Key.Back:
+                    NavigateUp();
                     break;
                 case Key.Escape:
                     if (AlbumPopup.IsOpen)
