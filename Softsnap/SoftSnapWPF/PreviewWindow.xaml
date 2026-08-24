@@ -7,29 +7,140 @@
 
     <Window.InputBindings>
         <KeyBinding Key="Escape" Command="{Binding CloseCommand, ElementName=PreviewWin}"/>
+        <KeyBinding Modifiers="Ctrl" Key="Z" Command="{Binding UndoCommand, ElementName=PreviewWin}"/>
     </Window.InputBindings>
+
+    <Window.Resources>
+        <!-- Tool toggle button -->
+        <Style x:Key="ToolRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#999999"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bd" CornerRadius="6" Padding="9,4" Background="#22808080">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#007AFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Color swatch -->
+        <Style x:Key="SwatchRadio" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Width="20" Height="20">
+                            <Ellipse x:Name="ring" Stroke="Transparent" StrokeThickness="2"/>
+                            <Ellipse Margin="3" Fill="{TemplateBinding Background}"
+                                     Stroke="#40808080" StrokeThickness="1"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ring" Property="Stroke" Value="#007AFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Grid Focusable="True" FocusManager.IsFocusScope="True">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Top bar -->
-        <DockPanel Grid.Row="0" Margin="12,8,12,4">
+        <DockPanel Grid.Row="0" Margin="12,8,12,2">
             <TextBlock x:Name="FileNameLabel" Text="" Foreground="Gray"
                        FontFamily="Segoe UI" FontSize="11"
                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
         </DockPanel>
 
-        <!-- Image -->
-        <Border Grid.Row="1" Margin="10,4" ClipToBounds="True">
-            <Image x:Name="PreviewImage" Stretch="Uniform"/>
+        <!-- Annotation toolbar -->
+        <DockPanel Grid.Row="1" Margin="12,2,12,4" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                <RadioButton x:Name="ToolNone"  GroupName="Tool" Style="{StaticResource ToolRadio}"
+                             Content="👆" ToolTip="เลื่อนดู (ไม่วาด)" IsChecked="True" Checked="Tool_Checked" Tag="None"/>
+                <RadioButton x:Name="ToolPen"   GroupName="Tool" Style="{StaticResource ToolRadio}"
+                             Content="✏️" ToolTip="ปากกา (วาดอิสระ)" Checked="Tool_Checked" Tag="Pen"/>
+                <RadioButton x:Name="ToolRect"  GroupName="Tool" Style="{StaticResource ToolRadio}"
+                             Content="▭" ToolTip="กรอบสี่เหลี่ยม" Checked="Tool_Checked" Tag="Rect"/>
+                <RadioButton x:Name="ToolArrow" GroupName="Tool" Style="{StaticResource ToolRadio}"
+                             Content="➜" ToolTip="ลูกศร" Checked="Tool_Checked" Tag="Arrow"/>
+                <RadioButton x:Name="ToolText"  GroupName="Tool" Style="{StaticResource ToolRadio}"
+                             Content="T" FontWeight="Bold" ToolTip="พิมพ์ข้อความ" Checked="Tool_Checked" Tag="Text"/>
+
+                <Rectangle Width="1" Fill="#40808080" Margin="8,4"/>
+
+                <RadioButton GroupName="Color" Style="{StaticResource SwatchRadio}" Background="#FF3B30"
+                             ToolTip="แดง" IsChecked="True" Checked="Color_Checked" Tag="#FF3B30"/>
+                <RadioButton GroupName="Color" Style="{StaticResource SwatchRadio}" Background="#FFCC00"
+                             ToolTip="เหลือง" Checked="Color_Checked" Tag="#FFCC00"/>
+                <RadioButton GroupName="Color" Style="{StaticResource SwatchRadio}" Background="#34C759"
+                             ToolTip="เขียว" Checked="Color_Checked" Tag="#34C759"/>
+                <RadioButton GroupName="Color" Style="{StaticResource SwatchRadio}" Background="#007AFF"
+                             ToolTip="น้ำเงิน" Checked="Color_Checked" Tag="#007AFF"/>
+                <RadioButton GroupName="Color" Style="{StaticResource SwatchRadio}" Background="#000000"
+                             ToolTip="ดำ" Checked="Color_Checked" Tag="#000000"/>
+                <RadioButton GroupName="Color" Style="{StaticResource SwatchRadio}" Background="#FFFFFF"
+                             ToolTip="ขาว" Checked="Color_Checked" Tag="#FFFFFF"/>
+
+                <Rectangle Width="1" Fill="#40808080" Margin="8,4"/>
+
+                <RadioButton GroupName="Size" Style="{StaticResource ToolRadio}" Content="S"
+                             ToolTip="เส้นบาง" Checked="Size_Checked" Tag="2"/>
+                <RadioButton GroupName="Size" Style="{StaticResource ToolRadio}" Content="M"
+                             ToolTip="เส้นกลาง" IsChecked="True" Checked="Size_Checked" Tag="4"/>
+                <RadioButton GroupName="Size" Style="{StaticResource ToolRadio}" Content="L"
+                             ToolTip="เส้นหนา" Checked="Size_Checked" Tag="7"/>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="↩ Undo" Style="{StaticResource SmallButton}" Background="#5856D6"
+                        Margin="0,0,6,0" ToolTip="ย้อนกลับ (Ctrl+Z)" Click="UndoBtn_Click"/>
+                <Button Content="🖌 Paint" Style="{StaticResource SmallButton}" Background="#FF9500"
+                        Margin="0,0,6,0" ToolTip="เปิดแก้ไขด้วย MS Paint (บันทึกแล้วรูปจะรีโหลดเอง)"
+                        Click="EditInPaintBtn_Click"/>
+                <Button x:Name="SaveBtn" Content="💾 Save" Style="{StaticResource SmallButton}" Background="#34C759"
+                        ToolTip="บันทึกทับไฟล์เดิม" Click="SaveBtn_Click"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Image + annotation overlay -->
+        <Border Grid.Row="2" Margin="10,4" ClipToBounds="True">
+            <Viewbox Stretch="Uniform">
+                <Grid x:Name="EditorRoot">
+                    <Image x:Name="PreviewImage" Stretch="Fill"/>
+                    <Canvas x:Name="AnnotationCanvas" Background="Transparent"
+                            MouseLeftButtonDown="Canvas_MouseLeftButtonDown"
+                            MouseMove="Canvas_MouseMove"
+                            MouseLeftButtonUp="Canvas_MouseLeftButtonUp"/>
+                </Grid>
+            </Viewbox>
         </Border>
 
         <!-- Bottom bar -->
-        <DockPanel Grid.Row="2" Margin="12,4,12,8">
+        <DockPanel Grid.Row="3" Margin="12,4,12,8">
             <Button DockPanel.Dock="Right" Content="Copy Path" Width="100" Height="30"
                     Background="#007AFF" Style="{StaticResource RoundButton}" FontSize="11"
                     Click="CopyPathBtn_Click"/>

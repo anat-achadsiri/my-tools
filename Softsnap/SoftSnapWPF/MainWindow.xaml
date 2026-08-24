@@ -1,7 +1,7 @@
 <Window x:Class="SoftSnapWPF.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SoftSnap" Width="946" Height="860" MinWidth="600" MinHeight="520"
+        Title="SoftSnap" Width="1060" Height="860" MinWidth="600" MinHeight="520"
         WindowStartupLocation="CenterScreen"
         Background="#0C0A1A"
         x:Name="MainWin"
@@ -99,6 +99,14 @@
                     </StackPanel>
                 </Button>
                 <Border Style="{StaticResource ToolbarSep}"/>
+                <Button x:Name="SortToggleBtn" Style="{StaticResource ToolbarButton}"
+                        Click="SortToggleBtn_Click" ToolTip="สลับลำดับการแสดงผล">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x2195;" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBlock x:Name="SortToggleLabel" Text="ใหม่→เก่า" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Border Style="{StaticResource ToolbarSep}"/>
                 <Button x:Name="ThemeBtn" Content="&#x263D;"
                         Style="{StaticResource ToolbarButton}"
                         FontSize="14" Padding="8,2" Click="ThemeBtn_Click"
@@ -110,25 +118,7 @@
         <Border x:Name="AddressBar" Grid.Row="1" Background="#FFFFFF" BorderBrush="#E5E5E5" BorderThickness="0,0,0,1"
                 Padding="6,3">
             <DockPanel>
-                <!-- Right: count + path -->
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,4,0">
-                    <TextBlock x:Name="PathLabel" Text="" Foreground="#999"
-                               FontFamily="Segoe UI" FontSize="10"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" MaxWidth="300"/>
-                    <TextBlock x:Name="CountLabel" Text="0"
-                               Foreground="#666" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
-                               VerticalAlignment="Center" Margin="10,0,0,0"/>
-                    <Button x:Name="SortToggleBtn" Content="ใหม่→เก่า"
-                            Style="{StaticResource ToolbarButton}" Click="SortToggleBtn_Click"
-                            FontSize="10" Padding="6,2" Margin="8,0,0,0" ToolTip="สลับลำดับการแสดงผล"/>
-                    <Button x:Name="HiddenToggleBtn" Content="กลุ่มที่ซ่อน"
-                            Style="{StaticResource ToolbarButton}" Click="HiddenToggleBtn_Click"
-                            FontSize="10" Padding="6,2" Margin="6,0,0,0" Visibility="Collapsed"
-                            ToolTip="แสดง/ซ่อน กลุ่มที่ถูกซ่อนไว้"/>
-                </StackPanel>
-
-                <!-- Album pill tabs + overflow dropdown -->
+                <!-- Album pill tabs + overflow dropdown (เต็มความกว้าง) -->
                 <StackPanel Orientation="Horizontal">
                     <ItemsControl x:Name="AlbumTabs">
                         <ItemsControl.ItemsPanel>
@@ -238,7 +228,7 @@
                     <ItemsControl x:Name="GalleryItems">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel ItemWidth="176" Margin="8,8,8,0"/>
+                                <WrapPanel ItemWidth="180" Margin="8,8,8,0"/>
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -256,13 +246,26 @@
         <!-- ══ Status Bar ══ -->
         <Border x:Name="BottomBar" Grid.Row="3" Background="#F3F3F3" BorderBrush="#E5E5E5" BorderThickness="0,1,0,0">
             <DockPanel Margin="12,0">
-                <TextBlock x:Name="SelInfoLabel" DockPanel.Dock="Right" Text="" Foreground="#666"
-                           FontFamily="Segoe UI" FontSize="10"
-                           VerticalAlignment="Center"/>
                 <CheckBox x:Name="SelectAllCheck" DockPanel.Dock="Left" Content="เลือกทั้งหมด"
                           Foreground="#333" FontFamily="Segoe UI" FontSize="11"
                           VerticalContentAlignment="Center"
                           Click="SelectAllCheck_Click"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="HiddenToggleBtn" Content="กลุ่มที่ซ่อน"
+                            Style="{StaticResource ToolbarButton}" Click="HiddenToggleBtn_Click"
+                            FontSize="10" Padding="6,2" Margin="0,0,10,0" Visibility="Collapsed"
+                            ToolTip="แสดง/ซ่อน กลุ่มที่ถูกซ่อนไว้"/>
+                    <TextBlock x:Name="PathLabel" Text="" Foreground="#999"
+                               FontFamily="Segoe UI" FontSize="10"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                    <TextBlock x:Name="CountLabel" Text="0"
+                               Foreground="#666" FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="10,0,14,0"/>
+                    <TextBlock x:Name="SelInfoLabel" Text="" Foreground="#666"
+                               FontFamily="Segoe UI" FontSize="10"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
                 <TextBlock x:Name="StatusLabel" Text="&#x2713; Ready"
                            Foreground="#107C10" FontFamily="Segoe UI" FontSize="11"
                            VerticalAlignment="Center" Margin="16,0,8,0"

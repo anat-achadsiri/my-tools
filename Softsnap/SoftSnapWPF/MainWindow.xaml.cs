@@ -31,6 +31,8 @@ namespace SoftSnapWPF
         private readonly List<Border> _popupRows = new(); // แถวใน popup (คู่กับ _popupFiltered)
         private int _popupSelIndex = 0; // แถวที่ highlight ด้วยคีย์บอร์ด
         private readonly HashSet<string> _selected = new();
+        private readonly HashSet<string> _copiedPaths = new();              // ไฟล์ที่เคยคัดลอก path แล้ว (ต่อ session)
+        private readonly Dictionary<string, Border> _copiedBadges = new();  // badge บนการ์ด (คู่กับไฟล์)
         private bool _isDark = true;
         private bool _sortNewestFirst = true; // true = ใหม่→เก่า, false = เก่า→ใหม่
         private const int ThumbSize = 140;
@@ -77,6 +79,16 @@ namespace SoftSnapWPF
             InitAlbums();
             RefreshAlbumCombo();
             LoadGallery();
+
+            // จำนวน tab อัลบั้มขึ้นกับความกว้างหน้าต่าง — rebuild เมื่อ resize
+            var lastTabCount = -1;
+            SizeChanged += (_, _) =>
+            {
+                if (!IsLoaded) return;
+                if (MaxVisibleTabs == lastTabCount) return;
+                lastTabCount = MaxVisibleTabs;
+                RefreshAlbumTabs();
+            };
 
             // Close album popup when clicking outside
             PreviewMouseDown += (_, e) =>
@@ -228,7 +240,16 @@ namespace SoftSnapWPF
             RefreshAlbumTabs();
         }
 
-        private const int MaxVisibleTabs = 6;
+        // จำนวน tab ที่แสดง — คำนวณจากความกว้างแถบอัลบั้มจริง (pill เฉลี่ย ~105px, กันที่ให้ปุ่ม +N และ ➕)
+        private int MaxVisibleTabs
+        {
+            get
+            {
+                var w = AddressBar?.ActualWidth ?? 0;
+                if (w <= 0) return 6;
+                return Math.Max(3, (int)((w - 150) / 105));
+            }
+        }
 
         /// <summary>\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25: \u0E1B\u0E31\u0E01\u0E2B\u0E21\u0E38\u0E14\u0E01\u0E48\u0E2D\u0E19 (\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E1B\u0E31\u0E01) \u0E41\u0E25\u0E49\u0E27\u0E15\u0E32\u0E21\u0E14\u0E49\u0E27\u0E22 MRU \u0E02\u0E2D\u0E07\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D</summary>
         private List<string> GetOrderedAlbums()
@@ -961,6 +982,11 @@ namespace SoftSnapWPF
                 var miRename = new MenuItem { Header = "เปลี่ยนชื่อ..." };
                 miRename.Click += (_, _) => RenameFolder(normDir);
                 menu.Items.Add(miRename);
+
+                menu.Items.Add(new Separator());
+                var miDelete = new MenuItem { Header = "ลบโฟลเดอร์..." };
+                miDelete.Click += (_, _) => DeleteFolder(normDir);
+                menu.Items.Add(miDelete);
             }
             node.ContextMenu = menu;
 
@@ -1140,6 +1166,90 @@ namespace SoftSnapWPF
             SetStatus($"สร้างโฟลเดอร์: {name}");
         }
 
+        // ── ลบโฟลเดอร์ย่อย (ย้ายไปถังรีไซเคิล) — คลิกขวาใน tree ──────
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct SHFILEOPSTRUCT
+        {
+            public IntPtr hwnd;
+            public uint wFunc;
+            public string pFrom;
+            public string pTo;
+            public ushort fFlags;
+            public bool fAnyOperationsAborted;
+            public IntPtr hNameMappings;
+            public string lpszProgressTitle;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern int SHFileOperation(ref SHFILEOPSTRUCT op);
+
+        private const uint FO_DELETE = 3;
+        private const ushort FOF_ALLOWUNDO = 0x0040;      // ย้ายไปถังรีไซเคิลแทนลบถาวร
+        private const ushort FOF_NOCONFIRMATION = 0x0010; // ใช้กล่องยืนยันของเราเอง
+        private const ushort FOF_SILENT = 0x0004;
+
+        private void DeleteFolder(string dir)
+        {
+            if (SameDir(dir, _saveDir)) return; // กันพลาด: ห้ามลบรากอัลบัม
+            var name = Path.GetFileName(dir);
+
+            int imgCount = 0;
+            try
+            {
+                imgCount = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+                    .Count(f => IsImage(f) && !IsLabelFile(f));
+            }
+            catch { }
+
+            var msg = imgCount > 0
+                ? $"ลบโฟลเดอร์ \"{name}\" ?\nมีรูปอยู่ {imgCount} ไฟล์ (รวมโฟลเดอร์ย่อย)\n\nโฟลเดอร์จะถูกย้ายไปถังรีไซเคิล"
+                : $"ลบโฟลเดอร์ \"{name}\" ?\n\nโฟลเดอร์จะถูกย้ายไปถังรีไซเคิล";
+            if (MessageBox.Show(this, msg, "ยืนยันการลบ",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            var op = new SHFILEOPSTRUCT
+            {
+                wFunc = FO_DELETE,
+                pFrom = NormDir(dir) + "\0\0",
+                fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT
+            };
+            int rc = SHFileOperation(ref op);
+            if (rc != 0 || Directory.Exists(dir))
+            { SetStatus("ลบโฟลเดอร์ไม่สำเร็จ", false); return; }
+
+            RemoveDirState(dir);
+            SaveConfig();
+            LoadGallery();
+            SetStatus($"ลบโฟลเดอร์แล้ว: {name} (อยู่ในถังรีไซเคิล)");
+        }
+
+        // เคลียร์ state ทุกตัวที่อ้าง path ใต้โฟลเดอร์ที่ถูกลบ
+        private void RemoveDirState(string dir)
+        {
+            var o = NormDir(dir);
+            bool Under(string p)
+            {
+                var np = NormDir(p);
+                return np.Equals(o, StringComparison.OrdinalIgnoreCase)
+                    || np.StartsWith(o + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+
+            foreach (var set in new[] { _collapsedGroups, _hiddenGroups, _expandedDirs })
+                set.RemoveWhere(Under);
+            foreach (var k in _activeGroups.Keys.ToList())
+                if (Under(_activeGroups[k])) _activeGroups.Remove(k);
+            foreach (var k in _currentDirs.Keys.ToList())
+                if (Under(_currentDirs[k])) _currentDirs.Remove(k);
+            if (!string.IsNullOrEmpty(_activeGroup) && Under(_activeGroup!)) _activeGroup = null;
+            _selected.RemoveWhere(Under);
+            _copiedPaths.RemoveWhere(Under);
+
+            // ถ้ากำลังเปิดโฟลเดอร์ที่ถูกลบอยู่ — กลับไปโฟลเดอร์แม่
+            if (!string.IsNullOrEmpty(_currentDir) && Under(_currentDir))
+                _currentDir = Path.GetDirectoryName(o) ?? _saveDir;
+        }
+
         // ── Gallery ─────────────────────────────────────────────────
         private void LoadGallery()
         {
@@ -1297,6 +1407,7 @@ namespace SoftSnapWPF
                         {
                             var bi = new BitmapImage();
                             bi.BeginInit();
+                            bi.CreateOptions = BitmapCreateOptions.IgnoreImageCache; // ไฟล์อาจถูกแก้ไขทับ path เดิม
                             bi.UriSource = new Uri(filepath);
                             // ป้ายกำกับถอดรหัสที่ความละเอียดสูงขึ้น เพื่อให้ตัวอักษรคมชัด (แสดงกว้างกว่า + อาจสูง)
                             bi.DecodePixelWidth = IsLabelFile(filepath) ? (ThumbSize + 20) * 2 : ThumbSize;
@@ -1353,9 +1464,8 @@ namespace SoftSnapWPF
                 CornerRadius = new CornerRadius(4),
                 BorderBrush = isSelected ? selectedBorder : Brushes.Transparent,
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(6),
-                Margin = new Thickness(2),
-                Width = 170,
+                Margin = new Thickness(4, 4, 4, 10),   // เว้นช่องว่างรอบการ์ด — คลิก/ลากคลุมที่ว่างง่ายขึ้น
+                Width = 156,
                 Cursor = Cursors.Hand
             };
 
@@ -1370,7 +1480,11 @@ namespace SoftSnapWPF
                 e.Handled = true;
             };
 
-            var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            var stack = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(4)
+            };
 
             // Fixed-size thumbnail box (like Windows Explorer)
             var img = new Image
@@ -1406,8 +1520,35 @@ namespace SoftSnapWPF
             {
                 Clipboard.SetText(fpCopy);
                 SetStatus("คัดลอกแล้ว: " + Path.GetFileName(fpCopy));
+                MarkCopied(fpCopy);
                 e.Handled = true;
             };
+
+            // Badge "คัดลอกแล้ว" (มุมซ้ายบนของรูปย่อ)
+            var copiedBadge = new Border
+            {
+                Width = 20,
+                Height = 20,
+                CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromArgb(230, 52, 199, 89)),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(4, 4, 0, 0),
+                ToolTip = "คัดลอก path แล้ว",
+                IsHitTestVisible = false,
+                Visibility = _copiedPaths.Contains(filepath) ? Visibility.Visible : Visibility.Collapsed,
+                Child = new TextBlock
+                {
+                    Text = "✓",
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 12,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, -1, 0, 0)
+                }
+            };
+            _copiedBadges[filepath] = copiedBadge;
 
             var thumbGrid = new Grid
             {
@@ -1430,6 +1571,7 @@ namespace SoftSnapWPF
 
             thumbGrid.Children.Add(imgBorder);
             thumbGrid.Children.Add(copyBtn);
+            thumbGrid.Children.Add(copiedBadge);
 
             // Show/hide copy button on hover
             thumbGrid.MouseEnter += (_, _) => copyBtn.Visibility = Visibility.Visible;
@@ -1451,7 +1593,25 @@ namespace SoftSnapWPF
                 TextTrimming = TextTrimming.CharacterEllipsis
             });
 
-            card.Child = stack;
+            // เส้นประแสดงขอบเขตการ์ด — นอกเส้นประคือที่ว่าง (คลิก/ลากคลุมได้)
+            var dashRect = new System.Windows.Shapes.Rectangle
+            {
+                Stroke = new SolidColorBrush(_isDark
+                    ? Color.FromArgb(70, 255, 255, 255)
+                    : Color.FromArgb(90, 130, 130, 130)),
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 3, 3 },
+                RadiusX = 4,
+                RadiusY = 4,
+                IsHitTestVisible = false,
+                Visibility = isSelected ? Visibility.Collapsed : Visibility.Visible
+            };
+
+            var cardGrid = new Grid();
+            cardGrid.Children.Add(dashRect);
+            cardGrid.Children.Add(stack);
+
+            card.Child = cardGrid;
             _cardToFile[card] = filepath;
             return (card, img);
         }
@@ -1794,10 +1954,18 @@ namespace SoftSnapWPF
         // ── Selection ────────────────────────────���──────────────────
         private void ToggleSelect(string filepath)
         {
-            if (_selected.Contains(filepath))
-                _selected.Remove(filepath);
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                // Ctrl+คลิก = เพิ่ม/เอาออกจากชุดที่เลือก (เลือกหลายรูปแบบเจาะจง)
+                if (!_selected.Remove(filepath)) _selected.Add(filepath);
+            }
             else
-                _selected.Add(filepath);
+            {
+                // คลิกธรรมดา = เลือกเฉพาะรูปที่คลิกเท่านั้น (เลือกหลายรูปให้ใช้ลากคลุมหรือ Ctrl+คลิก)
+                bool wasOnlyThis = _selected.Count == 1 && _selected.Contains(filepath);
+                _selected.Clear();
+                if (!wasOnlyThis) _selected.Add(filepath);
+            }
 
             UpdateSelBar();
             RefreshCardStyles();
@@ -1825,6 +1993,10 @@ namespace SoftSnapWPF
                     var isSel = _selected.Contains(fp);
                     card.Background = isSel ? selectedBg : Brushes.Transparent;
                     card.BorderBrush = isSel ? selectedBorder : Brushes.Transparent;
+                    // เลือกอยู่ → ซ่อนเส้นประ (ใช้กรอบทึบของสถานะเลือกแทน)
+                    if (card.Child is Grid g && g.Children.Count > 0
+                        && g.Children[0] is System.Windows.Shapes.Rectangle dash)
+                        dash.Visibility = isSel ? Visibility.Collapsed : Visibility.Visible;
                 }
             }
         }
@@ -1846,6 +2018,7 @@ namespace SoftSnapWPF
                 if (Keyboard.Modifiers != ModifierKeys.Control)
                 {
                     _selected.Clear();
+                    ClearCopiedMarks();
                     RefreshCardStyles();
                     UpdateSelBar();
                 }
@@ -1923,6 +2096,7 @@ namespace SoftSnapWPF
                 : _selected.OrderBy(f => File.GetLastWriteTime(f)).ToList();
             var paths = string.Join("\n", sorted);
             Clipboard.SetText(paths);
+            MarkCopied(sorted);
             var order = _sortNewestFirst ? "ใหม่→เก่า" : "เก่า→ใหม่";
             SetStatus($"คัดลอก {_selected.Count} path ({order})");
         }
@@ -2187,8 +2361,8 @@ namespace SoftSnapWPF
 
         private void UpdateSortButton()
         {
-            if (SortToggleBtn != null)
-                SortToggleBtn.Content = _sortNewestFirst ? "ใหม่→เก่า" : "เก่า→ใหม่";
+            if (SortToggleLabel != null)
+                SortToggleLabel.Text = _sortNewestFirst ? "ใหม่→เก่า" : "เก่า→ใหม่";
         }
 
         private static bool IsLabelFile(string filepath)
@@ -2208,6 +2382,8 @@ namespace SoftSnapWPF
                 _selected.Remove(filepath);
                 LoadGallery();
             };
+            preview.FileSaved += LoadGallery;
+            preview.PathCopied += () => MarkCopied(filepath);
             preview.Owner = this;
             preview.Show();
         }
@@ -2217,6 +2393,28 @@ namespace SoftSnapWPF
         {
             Clipboard.SetText(filepath);
             SetStatus("คัดลอกแล้ว: " + Path.GetFileName(filepath));
+            MarkCopied(filepath);
+        }
+
+        private void MarkCopied(params string[] paths) => MarkCopied((IEnumerable<string>)paths);
+
+        private void MarkCopied(IEnumerable<string> paths)
+        {
+            // แสดงเฉพาะชุดที่คัดลอกครั้งล่าสุด — ล้างเครื่องหมายเดิมก่อน
+            ClearCopiedMarks();
+            foreach (var p in paths)
+            {
+                _copiedPaths.Add(p);
+                if (_copiedBadges.TryGetValue(p, out var badge))
+                    badge.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void ClearCopiedMarks()
+        {
+            _copiedPaths.Clear();
+            foreach (var badge in _copiedBadges.Values)
+                badge.Visibility = Visibility.Collapsed;
         }
 
         // ── Theme ───────────────────────────────────────────────────
