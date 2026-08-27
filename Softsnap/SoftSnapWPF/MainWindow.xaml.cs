@@ -31,6 +31,11 @@ namespace SoftSnapWPF
         private readonly List<Border> _popupRows = new(); // แถวใน popup (คู่กับ _popupFiltered)
         private int _popupSelIndex = 0; // แถวที่ highlight ด้วยคีย์บอร์ด
         private readonly HashSet<string> _selected = new();
+        // ลากรูปจาก gallery ไปวางที่โฟลเดอร์ใน tree เพื่อย้ายไฟล์
+        private string? _cardDragFile;          // ไฟล์ของการ์ดที่กดเมาส์ค้างอยู่ (รอเริ่มลาก)
+        private Point _cardDragStart;           // ตำแหน่งกดเมาส์ — เริ่มลากเมื่อเลื่อนเกิน threshold
+        private bool _cardDragPendingToggle;    // การ์ดถูกเลือกอยู่แล้วตอนกด → toggle ตอนปล่อยแทน (จะได้ลากทั้งชุด)
+        private const string DragFilesFormat = "SoftSnapFiles";
         private readonly HashSet<string> _copiedPaths = new();              // ไฟล์ที่เคยคัดลอก path แล้ว (ต่อ session)
         private readonly Dictionary<string, Border> _copiedBadges = new();  // badge บนการ์ด (คู่กับไฟล์)
         private bool _isDark = true;
@@ -969,11 +974,42 @@ namespace SoftSnapWPF
                 _expandedDirs.Remove(normDir);
             };
 
+            // รับการลากรูปจาก gallery มาวางเพื่อย้ายไฟล์เข้าโฟลเดอร์นี้
+            node.AllowDrop = true;
+            var dropBg = new SolidColorBrush(_isDark
+                ? Color.FromArgb(90, 99, 102, 241)
+                : Color.FromArgb(70, 0, 120, 215));
+            node.DragOver += (_, e) =>
+            {
+                e.Handled = true;
+                if (!e.Data.GetDataPresent(DragFilesFormat)) { e.Effects = DragDropEffects.None; return; }
+                e.Effects = DragDropEffects.Move;
+                header.Background = dropBg;
+            };
+            node.DragLeave += (_, e) =>
+            {
+                header.Background = Brushes.Transparent;
+                e.Handled = true;
+            };
+            node.Drop += (_, e) =>
+            {
+                e.Handled = true;
+                header.Background = Brushes.Transparent;
+                if (e.Data.GetData(DragFilesFormat) is string[] files)
+                    MoveFilesToFolder(normDir, files);
+            };
+
             // เมนูคลิกขวา (ราก Album ไม่ให้เปลี่ยนชื่อ)
             var menu = new ContextMenu();
             var miNewFolder = new MenuItem { Header = "สร้างโฟลเดอร์ใหม่..." };
             miNewFolder.Click += (_, _) => CreateNewFolder(normDir);
             menu.Items.Add(miNewFolder);
+            var miDateFolder = new MenuItem();
+            miDateFolder.Click += (_, _) => CreateDateFolder(normDir);
+            menu.Items.Add(miDateFolder);
+            // อัปเดตชื่อเมนูตอนเปิด — วันที่เปลี่ยนได้ถ้าเปิดโปรแกรมข้ามวัน
+            menu.Opened += (_, _) =>
+                miDateFolder.Header = $"สร้างโฟลเดอร์วันที่ ({DateTime.Now:yyyyMMdd})";
             var miOpen = new MenuItem { Header = "เปิดใน Explorer" };
             miOpen.Click += (_, _) => Process.Start("explorer.exe", normDir);
             menu.Items.Add(miOpen);
@@ -1160,9 +1196,29 @@ namespace SoftSnapWPF
             try { Directory.CreateDirectory(dir); }
             catch (Exception ex) { SetStatus("สร้างโฟลเดอร์ไม่สำเร็จ: " + ex.Message, false); return; }
 
-            // ขยาย node แม่ใน tree ให้เห็นโฟลเดอร์ใหม่ทันที
+            // ขยาย node แม่ใน tree แล้วเปิดโฟลเดอร์ใหม่เลย
             _expandedDirs.Add(NormDir(parentDir));
-            LoadGallery();
+            NavigateTo(dir);
+            SetStatus($"สร้างโฟลเดอร์: {name}");
+        }
+
+        // สร้างโฟลเดอร์ชื่อวันที่วันนี้ (yyyyMMdd) — คลิกขวาใน tree
+        private void CreateDateFolder(string parentDir)
+        {
+            var name = DateTime.Now.ToString("yyyyMMdd");
+            var dir = Path.Combine(parentDir, name);
+            if (Directory.Exists(dir))
+            {
+                _expandedDirs.Add(NormDir(parentDir));
+                NavigateTo(dir);
+                SetStatus($"มีโฟลเดอร์วันที่นี้อยู่แล้ว: {name}", false);
+                return;
+            }
+            try { Directory.CreateDirectory(dir); }
+            catch (Exception ex) { SetStatus("สร้างโฟลเดอร์ไม่สำเร็จ: " + ex.Message, false); return; }
+
+            _expandedDirs.Add(NormDir(parentDir));
+            NavigateTo(dir);
             SetStatus($"สร้างโฟลเดอร์: {name}");
         }
 
@@ -1469,14 +1525,24 @@ namespace SoftSnapWPF
                 Cursor = Cursors.Hand
             };
 
-            // Click = toggle select, Double-click = preview
+            // Click = toggle select, Double-click = preview, กดค้างแล้วลาก = ย้ายไปโฟลเดอร์ใน tree
             var fpClick = filepath;
             card.MouseLeftButtonDown += (_, e) =>
             {
-                if (e.ClickCount == 2)
-                    ShowPreview(fpClick);
-                else
-                    ToggleSelect(fpClick);
+                if (e.ClickCount == 2) { ShowPreview(fpClick); e.Handled = true; return; }
+                _cardDragFile = fpClick;
+                _cardDragStart = e.GetPosition(null);
+                // รูปที่เลือกอยู่แล้ว: เลื่อน toggle ไปตอนปล่อยเมาส์ — กดค้างลากจะได้ย้ายทั้งชุดที่เลือกไว้
+                _cardDragPendingToggle = _selected.Contains(fpClick);
+                if (!_cardDragPendingToggle) ToggleSelect(fpClick);
+                e.Handled = true;
+            };
+            card.MouseMove += (_, e) => TryStartCardDrag(card, fpClick, e);
+            card.MouseLeftButtonUp += (_, e) =>
+            {
+                if (_cardDragFile == fpClick && _cardDragPendingToggle) ToggleSelect(fpClick);
+                _cardDragFile = null;
+                _cardDragPendingToggle = false;
                 e.Handled = true;
             };
 
@@ -1999,6 +2065,51 @@ namespace SoftSnapWPF
                         dash.Visibility = isSel ? Visibility.Collapsed : Visibility.Visible;
                 }
             }
+        }
+
+        // ── ลากรูปไปวางที่โฟลเดอร์ใน tree เพื่อย้ายไฟล์ ─────────────
+        private void TryStartCardDrag(Border card, string filepath, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _cardDragFile != filepath) return;
+            var pos = e.GetPosition(null);
+            if (Math.Abs(pos.X - _cardDragStart.X) < SystemParameters.MinimumHorizontalDragDistance
+                && Math.Abs(pos.Y - _cardDragStart.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            _cardDragFile = null;
+            _cardDragPendingToggle = false;
+
+            // ย้ายทั้งชุดที่เลือก (ไม่รวมป้ายกำกับ — ป้ายผูกกับกลุ่มของมัน)
+            var files = _selected.Where(f => !IsLabelFile(f) && File.Exists(f)).ToArray();
+            if (files.Length == 0) return;
+
+            DragDrop.DoDragDrop(card, new DataObject(DragFilesFormat, files), DragDropEffects.Move);
+        }
+
+        private void MoveFilesToFolder(string targetDir, string[] files)
+        {
+            int moved = 0, failed = 0;
+            foreach (var f in files)
+            {
+                if (!File.Exists(f)) continue;
+                if (SameDir(Path.GetDirectoryName(f) ?? "", targetDir)) continue; // อยู่โฟลเดอร์นี้อยู่แล้ว
+                try
+                {
+                    File.Move(f, UniquePath(Path.Combine(targetDir, Path.GetFileName(f))));
+                    moved++;
+                }
+                catch { failed++; }
+            }
+
+            if (moved == 0 && failed == 0)
+            { SetStatus("รูปอยู่ในโฟลเดอร์นี้อยู่แล้ว", false); return; }
+
+            _selected.Clear();
+            LoadGallery();
+            var name = SameDir(targetDir, _saveDir) ? _currentAlbum : Path.GetFileName(targetDir);
+            SetStatus(failed == 0
+                ? $"ย้าย {moved} รูปไป \"{name}\""
+                : $"ย้าย {moved} รูปไป \"{name}\" (ล้มเหลว {failed} ไฟล์)", failed == 0);
         }
 
         // ── Drag-select (rubber-band) ───────────────────────────────
